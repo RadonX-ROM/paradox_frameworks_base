@@ -2288,4 +2288,6 @@
   <!-- From SignalStrength -->
   <java-symbol type="integer" name="config_LTE_RSRP_threshold_type" />
   <java-symbol type="bool" name="config_enable_14digit_imei" />
+
+  <java-symbol type="bool" name="config_wifiApFirmwareReload" />
 </resources>
