@@ -31,7 +31,10 @@ import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.PowerManager;
+<<<<<<< HEAD
 import android.os.RemoteException;
+=======
+>>>>>>> 7851e8c... power: Add CPU boosting interface
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -82,6 +85,8 @@ public class KeyButtonView extends ImageView {
 
     private PowerManager mPm;
 
+    private PowerManager mPm;
+
     private final Runnable mCheckLongPress = new Runnable() {
         public void run() {
             mIsLongpressed = true;
@@ -123,6 +128,7 @@ public class KeyButtonView extends ImageView {
         mTouchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
         mAudioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
         setBackground(new KeyButtonRipple(context, this));
+        mPm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
     }
 
     @Override
@@ -217,6 +223,9 @@ public class KeyButtonView extends ImageView {
     public boolean onTouchEvent(MotionEvent ev) {
         final int action = ev.getAction();
         int x, y;
+
+        // A lot of stuff is about to happen. Lets get ready.
+        mPm.cpuBoost(750000);
 
         switch (action) {
             case MotionEvent.ACTION_DOWN:
