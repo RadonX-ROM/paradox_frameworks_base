@@ -43,10 +43,13 @@ oneway interface IStatusBar
     void preloadRecentApps();
     void cancelPreloadRecentApps();
     void showScreenPinningRequest();
+<<<<<<< HEAD
+=======
     void setAutoRotate(boolean enabled);
     void showCustomIntentAfterKeyguard(inout Intent intent);
     void toggleScreenshot();
     void toggleLastApp();
     void toggleKillApp();
+>>>>>>> 1747e4b... [1/2] Slims Hardware Key Rebinding
 }
 

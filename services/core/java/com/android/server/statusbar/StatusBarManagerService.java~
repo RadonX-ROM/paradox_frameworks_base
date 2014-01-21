@@ -454,6 +454,8 @@ public class StatusBarManagerService extends IStatusBarService.Stub {
         }
     }
 
+<<<<<<< HEAD
+=======
     @Override
     public void setAutoRotate(boolean enabled) {
         if (mBar != null) {
@@ -504,6 +506,7 @@ public class StatusBarManagerService extends IStatusBarService.Stub {
         }
     }
 
+>>>>>>> 1747e4b... [1/2] Slims Hardware Key Rebinding
     private void enforceStatusBar() {
         mContext.enforceCallingOrSelfPermission(android.Manifest.permission.STATUS_BAR,
                 "StatusBarManagerService");

@@ -19,7 +19,9 @@ package com.android.systemui.statusbar;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.TimeInterpolator;
+import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.ActivityManager.RunningAppProcessInfo;
 import android.app.ActivityManagerNative;
 import android.app.IActivityManager;
 import android.app.Notification;
@@ -40,6 +42,7 @@ import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.content.ServiceConnection;
 import android.database.ContentObserver;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
@@ -48,7 +51,9 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.Messenger;
 import android.os.PowerManager;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
@@ -83,6 +88,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RemoteViews;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.statusbar.StatusBarIcon;
@@ -131,6 +137,9 @@ public abstract class BaseStatusBar extends SystemUI implements
     protected static final int MSG_HIDE_HEADS_UP = 1029;
     protected static final int MSG_ESCALATE_HEADS_UP = 1030;
     protected static final int MSG_DECAY_HEADS_UP = 1031;
+    protected static final int MSG_TOGGLE_LAST_APP = 1032;
+    protected static final int MSG_TOGGLE_KILL_APP = 1033;
+    protected static final int MSG_TOGGLE_SCREENSHOT = 1034;
 
     protected static final boolean ENABLE_HEADS_UP = true;
     // scores above this threshold should be displayed in heads up mode.
@@ -1048,6 +1057,27 @@ public abstract class BaseStatusBar extends SystemUI implements
         mHandler.sendEmptyMessage(msg);
     }
 
+    @Override
+    public void toggleLastApp() {
+        int msg = MSG_TOGGLE_LAST_APP;
+        mHandler.removeMessages(msg);
+        mHandler.sendEmptyMessage(msg);
+    }
+
+    @Override
+    public void toggleKillApp() {
+        int msg = MSG_TOGGLE_KILL_APP;
+        mHandler.removeMessages(msg);
+        mHandler.sendEmptyMessage(msg);
+    }
+
+    @Override
+    public void toggleScreenshot() {
+        int msg = MSG_TOGGLE_SCREENSHOT;
+        mHandler.removeMessages(msg);
+        mHandler.sendEmptyMessage(msg);
+    }
+
     protected abstract WindowManager.LayoutParams getSearchLayoutParams(
             LayoutParams layoutParams);
 
@@ -1263,6 +1293,18 @@ public abstract class BaseStatusBar extends SystemUI implements
                  if (mSearchPanelView != null && mSearchPanelView.isShowing()) {
                      mSearchPanelView.show(false, true);
                  }
+                 break;
+             case MSG_TOGGLE_LAST_APP:
+                 if (DEBUG) Slog.d(TAG, "toggle last app");
+                 getLastApp();
+                 break;
+             case MSG_TOGGLE_KILL_APP:
+                 if (DEBUG) Slog.d(TAG, "toggle kill app");
+                 mHandler.post(mKillTask);
+                 break;
+             case MSG_TOGGLE_SCREENSHOT:
+                 if (DEBUG) Slog.d(TAG, "toggle screenshot");
+                 takeScreenshot();
                  break;
             }
         }
@@ -2197,44 +2239,43 @@ public abstract class BaseStatusBar extends SystemUI implements
 
     Runnable mKillTask = new Runnable() {
         public void run() {
-            try {
-                final Intent intent = new Intent(Intent.ACTION_MAIN);
-                String defaultHomePackage = "com.android.launcher";
-                intent.addCategory(Intent.CATEGORY_HOME);
-                final ResolveInfo res = mContext.getPackageManager().resolveActivity(intent, 0);
-                if (res.activityInfo != null && !res.activityInfo.packageName.equals("android")) {
-                    defaultHomePackage = res.activityInfo.packageName;
-                }
-                boolean targetKilled = false;
-                IActivityManager am = ActivityManagerNative.getDefault();
-                List<RunningAppProcessInfo> apps = am.getRunningAppProcesses();
-                for (RunningAppProcessInfo appInfo : apps) {
-                    int uid = appInfo.uid;
-                    // Make sure it's a foreground user application (not system,
-                    // root, phone, etc.)
-                    if (uid >= Process.FIRST_APPLICATION_UID && uid <= Process.LAST_APPLICATION_UID
-                            && appInfo.importance == RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
-                        if (appInfo.pkgList != null && (appInfo.pkgList.length > 0)) {
-                            for (String pkg : appInfo.pkgList) {
-                                if (!pkg.equals("com.android.systemui")
-                                        && !pkg.equals(defaultHomePackage)) {
-                                    am.forceStopPackage(pkg, UserHandle.USER_CURRENT);
-                                    targetKilled = true;
-                                    break;
-                                }
+            final Intent intent = new Intent(Intent.ACTION_MAIN);
+            String defaultHomePackage = "com.android.launcher";
+            intent.addCategory(Intent.CATEGORY_HOME);
+            final ResolveInfo res = mContext.getPackageManager().resolveActivity(intent, 0);
+            if (res.activityInfo != null && !res.activityInfo.packageName.equals("android")) {
+                defaultHomePackage = res.activityInfo.packageName;
+            }
+            boolean targetKilled = false;
+            final ActivityManager am = (ActivityManager) mContext
+                    .getSystemService(Activity.ACTIVITY_SERVICE);
+            List<RunningAppProcessInfo> apps = am.getRunningAppProcesses();
+            for (RunningAppProcessInfo appInfo : apps) {
+                int uid = appInfo.uid;
+                // Make sure it's a foreground user application (not system,
+                // root, phone, etc.)
+                if (uid >= Process.FIRST_APPLICATION_UID && uid <= Process.LAST_APPLICATION_UID
+                        && appInfo.importance == RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+                    if (appInfo.pkgList != null && (appInfo.pkgList.length > 0)) {
+                        for (String pkg : appInfo.pkgList) {
+                            if (!pkg.equals("com.android.systemui")
+                                    && !pkg.equals(defaultHomePackage)) {
+                                am.forceStopPackage(pkg);
+                                targetKilled = true;
+                                break;
                             }
-                        } else {
-                            Process.killProcess(appInfo.pid);
-                            targetKilled = true;
                         }
-                    }
-                    if (targetKilled) {
-                        Toast.makeText(mContext,
-                                R.string.app_killed_message, Toast.LENGTH_SHORT).show();
-                        break;
+                    } else {
+                        Process.killProcess(appInfo.pid);
+                        targetKilled = true;
                     }
                 }
-            } catch (RemoteException e) {}
+                if (targetKilled) {
+                    Toast.makeText(mContext,
+                        R.string.app_killed_message, Toast.LENGTH_SHORT).show();
+                    break;
+                }
+            }
         }
     };
 
