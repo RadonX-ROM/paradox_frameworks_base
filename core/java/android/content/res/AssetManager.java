@@ -639,7 +639,13 @@ public final class AssetManager implements AutoCloseable {
         }
     }
 
-    private native final int addOverlayPathNative(String idmapPath);
+    /**
+     * See addOverlayPath.
+     *
+     * {@hide}
+     */
+
+    public native final int addOverlayPathNative(String idmapPath);
 
     /**
      * Add multiple sets of assets to the asset manager at once.  See
