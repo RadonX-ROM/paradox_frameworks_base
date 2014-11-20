@@ -1357,7 +1357,7 @@
     <!-- Whether action menu items should obey the "withText" showAsAction
          flag. This may be set to false for situations where space is
          extremely limited. -->
-    <bool name="config_allowActionMenuItemTextWithIcon">false</bool>
+    <bool name="config_allowActionMenuItemTextWithIcon">true</bool>
 
     <!-- Remote server that can provide NTP responses. -->
     <string translatable="false" name="config_ntpServer">2.android.pool.ntp.org</string>
@@ -1806,7 +1806,7 @@
          0 - No change. Use the default autodetection behavior.
          1 - The device DOES have a permanent menu key; ignore autodetection.
          2 - The device DOES NOT have a permanent menu key; ignore autodetection. -->
-    <integer name="config_overrideHasPermanentMenuKey">0</integer>
+    <integer name="config_overrideHasPermanentMenuKey">1</integer>
 
     <!-- Override the DPad detection behavior for configuration purposes -->
     <bool name="config_hasPermanentDpad">false</bool>
@@ -2260,7 +2260,9 @@
     <!-- The list of components which should be forced to be enabled. -->
     <string-array name="config_forceEnabledComponents" translatable="false">
     </string-array>
-    
+
+    <bool name="config_offscreenGestureSupport">true</bool>
+
     <!-- Whether doze should invert colors for notifications. If the RRO theme causes
     the NORMAL notification background to be dark and the text to be light, this boolean
     needs to be set to false, to prevent the doze notifications from being light -->
