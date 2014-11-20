@@ -723,6 +723,12 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             resolver.registerContentObserver(Settings.Global.getUriFor(
                     Settings.System.HOME_BUTTON_WAKE), false, this,
                     UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.Global.getUriFor(
+                    Settings.System.VOLUME_BUTTON_WAKE), false, this,
+                    UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.Global.getUriFor(
+                    Settings.System.HOME_BUTTON_WAKE), false, this,
+                    UserHandle.USER_ALL);
 
             updateSettings();
         }
