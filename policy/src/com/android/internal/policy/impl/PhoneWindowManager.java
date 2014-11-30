@@ -4778,8 +4778,19 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
         // Basic policy based on interactive state.
         int result;
+
+        final boolean isVolumeWakeKey = !isScreenOn()
+                && mVolumeWakeScreen
+                && (keyCode == KeyEvent.KEYCODE_VOLUME_UP
+                || keyCode == KeyEvent.KEYCODE_VOLUME_DOWN);
+
+        final boolean isHomeWakeKey = !isScreenOn()
+                && (keyCode == KeyEvent.KEYCODE_HOME);
+
         boolean isWakeKey = (policyFlags & WindowManagerPolicy.FLAG_WAKE) != 0
-                || event.isWakeKey();
+                || event.isWakeKey()
+                || isVolumeWakeKey
+                || isHomeWakeKey;
 
         if (mOffscreenGestureSupport && !isWakeKey) {
             isWakeKey = isOffscreenWakeKey(keyCode);
