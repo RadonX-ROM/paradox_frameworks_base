@@ -301,6 +301,34 @@ public class RecentsView extends FrameLayout implements TaskStackView.TaskStackV
         mConfig.getTaskStackBounds(width, height, mConfig.systemInsets.top,
                 mConfig.systemInsets.right, taskStackBounds);
 
+        if (mClearRecents != null && showClearAllRecents) {
+            int clearRecentsLocation = Settings.System.getInt(mContext.getContentResolver(),
+                    Settings.System.RECENTS_CLEAR_ALL_LOCATION, Constants.DebugFlags.App.RECENTS_CLEAR_ALL_TOP_RIGHT);
+            FrameLayout.LayoutParams params = (FrameLayout.LayoutParams)
+                    mClearRecents.getLayoutParams();
+            params.topMargin = taskStackBounds.top;
+            params.rightMargin = width - taskStackBounds.right;
+            switch (clearRecentsLocation) {
+                case Constants.DebugFlags.App.RECENTS_CLEAR_ALL_TOP_LEFT:
+                    params.gravity = Gravity.TOP | Gravity.LEFT;
+                    break;
+                case Constants.DebugFlags.App.RECENTS_CLEAR_ALL_TOP_RIGHT:
+                default:
+                    params.gravity = Gravity.TOP | Gravity.RIGHT;
+                    break;
+                case Constants.DebugFlags.App.RECENTS_CLEAR_ALL_BOTTOM_RIGHT:
+                    params.gravity = Gravity.BOTTOM | Gravity.RIGHT;
+                    break;
+                case Constants.DebugFlags.App.RECENTS_CLEAR_ALL_BOTTOM_LEFT:
+                    params.gravity = Gravity.BOTTOM | Gravity.LEFT;
+                    break;
+
+            }
+            mClearRecents.setLayoutParams(params);
+        } else {
+            mClearRecents.setVisibility(View.GONE);
+        }
+
         // Measure each TaskStackView with the full width and height of the window since the 
         // transition view is a child of that stack view
         int childCount = getChildCount();
