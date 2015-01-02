@@ -66,6 +66,8 @@ public class RecentsView extends FrameLayout implements TaskStackView.TaskStackV
     View mSearchBar;
     RecentsViewCallbacks mCb;
     View mClearRecents;
+    View mFloatingButton;
+    boolean mAlreadyLaunchingTask;
 
     public RecentsView(Context context) {
         super(context);
@@ -301,35 +303,34 @@ public class RecentsView extends FrameLayout implements TaskStackView.TaskStackV
         mConfig.getTaskStackBounds(width, height, mConfig.systemInsets.top,
                 mConfig.systemInsets.right, taskStackBounds);
 
-        if (mClearRecents != null && showClearAllRecents) {
+        if (mFloatingButton != null && showClearAllRecents) {
             int clearRecentsLocation = Settings.System.getInt(mContext.getContentResolver(),
-                    Settings.System.RECENTS_CLEAR_ALL_LOCATION, Constants.DebugFlags.App.RECENTS_CLEAR_ALL_TOP_RIGHT);
+                    Settings.System.RECENTS_CLEAR_ALL_LOCATION, Constants.DebugFlags.App.RECENTS_CLEAR_ALL_BOTTOM_RIGHT);
             FrameLayout.LayoutParams params = (FrameLayout.LayoutParams)
-                    mClearRecents.getLayoutParams();
+                    mFloatingButton.getLayoutParams();
             params.topMargin = taskStackBounds.top;
-            params.rightMargin = width - taskStackBounds.right;
             switch (clearRecentsLocation) {
                 case Constants.DebugFlags.App.RECENTS_CLEAR_ALL_TOP_LEFT:
                     params.gravity = Gravity.TOP | Gravity.LEFT;
                     break;
                 case Constants.DebugFlags.App.RECENTS_CLEAR_ALL_TOP_RIGHT:
-                default:
                     params.gravity = Gravity.TOP | Gravity.RIGHT;
-                    break;
-                case Constants.DebugFlags.App.RECENTS_CLEAR_ALL_BOTTOM_RIGHT:
-                    params.gravity = Gravity.BOTTOM | Gravity.RIGHT;
                     break;
                 case Constants.DebugFlags.App.RECENTS_CLEAR_ALL_BOTTOM_LEFT:
                     params.gravity = Gravity.BOTTOM | Gravity.LEFT;
                     break;
+                case Constants.DebugFlags.App.RECENTS_CLEAR_ALL_BOTTOM_RIGHT:
+                default:
+                    params.gravity = Gravity.BOTTOM | Gravity.RIGHT;
+                    break;
 
             }
-            mClearRecents.setLayoutParams(params);
+            mFloatingButton.setLayoutParams(params);
         } else {
-            mClearRecents.setVisibility(View.GONE);
+            mFloatingButton.setVisibility(View.GONE);
         }
 
-        // Measure each TaskStackView with the full width and height of the window since the 
+        // Measure each TaskStackView with the full width and height of the window since the
         // transition view is a child of that stack view
         int childCount = getChildCount();
         for (int i = 0; i < childCount; i++) {
@@ -354,12 +355,13 @@ public class RecentsView extends FrameLayout implements TaskStackView.TaskStackV
     @Override
     protected void onAttachedToWindow () {
         super.onAttachedToWindow();
-        //mClearRecents = ((View)getParent()).findViewById(R.id.clear_recents);
-        //mClearRecents.setOnClickListener(new View.OnClickListener() {
-        //    public void onClick(View v) {
-        //        dismissAllTasksAnimated();
-        ///    }
-       // });
+        mFloatingButton = ((View)getParent()).findViewById(R.id.floating_action_button);
+        mClearRecents = ((View)getParent()).findViewById(R.id.clear_recents);
+        mClearRecents.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                dismissAllTasksAnimated();
+            }
+        });
     }
 
     /**
@@ -376,7 +378,7 @@ public class RecentsView extends FrameLayout implements TaskStackView.TaskStackV
                     searchBarSpaceBounds.right, searchBarSpaceBounds.bottom);
         }
 
-        // Layout each TaskStackView with the full width and height of the window since the 
+        // Layout each TaskStackView with the full width and height of the window since the
         // transition view is a child of that stack view
         int childCount = getChildCount();
         for (int i = 0; i < childCount; i++) {

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
  * Copyright (c) 2014, VanirAOSP
+ * Copyright (c) 2014, Team Horizon
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,4 +21,11 @@
     <dimen name="navigation_menu_key_width">40dip</dimen>
     <!-- The width of the view containing the layout changer icon -->
     <dimen name="navigation_layout_changer_width">25dip</dimen>
+
+    <!-- Floating action button -->
+    <dimen name="floating_action_button_height">54dp</dimen>
+    <dimen name="floating_action_button_width">54dp</dimen>
+    <dimen name="floating_action_button_translation_z">12dp</dimen>
+    <dimen name="floating_action_button_margin_side">42dp</dimen>
+    <dimen name="floating_action_button_margin_bottom">38dp</dimen>
 </resources>
