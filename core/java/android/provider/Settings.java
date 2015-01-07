@@ -3075,6 +3075,12 @@ public final class Settings {
         public static final String SIP_ALWAYS = "SIP_ALWAYS";
 
         /**
+         * Whether to dismiss all recents tasks
+         * @hide
+         */
+        public static final String RECENTS_CLEAR_ALL_DISMISS_ALL = "recents_clear_all_dismiss_all";
+
+        /**
          * One of the sip call options: Only if destination is a SIP address.
          * @hide
          */
