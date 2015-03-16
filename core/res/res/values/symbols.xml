@@ -2306,4 +2306,9 @@
   <java-symbol name="ic_lock_power_soft" type="drawable" />
   <java-symbol name="global_action_reboot_soft" type="string" />
   <java-symbol type="array" name="config_rebootActionsList" />
+
+  <!-- Package Manager -->
+  <java-symbol type="array" name="config_disabledComponents" />
+  <java-symbol type="array" name="config_forceEnabledComponents" />
+
 </resources>
