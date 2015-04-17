@@ -2293,7 +2293,6 @@
   <!-- SoftAp -->
   <java-symbol type="bool" name="config_wifiApFirmwareReload" />
 
-
   <!-- Power menu reboot -->
   <java-symbol name="ic_lock_power_reboot" type="drawable" />
   <java-symbol name="global_action_reboot" type="string" />
@@ -2310,6 +2309,9 @@
   <!-- Package Manager -->
   <java-symbol type="array" name="config_disabledComponents" />
   <java-symbol type="array" name="config_forceEnabledComponents" />
-
   <java-symbol type="bool" name="config_offscreenGestureSupport" />
+
+   <!-- Doze invert -->
+  <java-symbol type="bool" name="config_invert_colors_on_doze" />
+
 </resources>
