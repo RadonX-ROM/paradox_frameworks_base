@@ -451,12 +451,16 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
         @Override
         public void onChange(boolean selfChange, Uri uri) {
             if (uri.equals(Settings.System.getUriFor(
-                            Settings.System.STATUS_BAR_SHOW_BATTERY_PERCENT)) ||
-                            uri.equals(Settings.System.getUriFor(
-                            Settings.System.STATUS_BAR_BATTERY_STYLE))) {
-                        mBatteryView.updateBatteryIconSettings();
-                        mHeader.updateBatteryIconSettings();
-                        mKeyguardStatusBar.updateBatteryIconSettings();
+                    Settings.System.STATUS_BAR_SHOW_BATTERY_PERCENT)) ||
+                uri.equals(Settings.System.getUriFor(
+                    Settings.System.STATUS_BAR_BATTERY_STYLE))) {
+                mBatteryView.updateBatteryIconSettings();
+                mHeader.updateBatteryIconSettings();
+                mKeyguardStatusBar.updateBatteryIconSettings();
+            } else if (uri.equals(Settings.System.getUriFor(
+                    Settings.System.SU_INDICATOR))) {
+                mSuController.updateNotification();
+                mSuController.fireCallbacks();
             }
             update();
         }
@@ -473,6 +477,7 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
             updateBatteryLevelText();
             mBatteryLevel.setVisibility(mShowBatteryText ? View.VISIBLE : View.GONE);
         }
+            
     }
 
     private void loadShowBatteryTextSetting() {
