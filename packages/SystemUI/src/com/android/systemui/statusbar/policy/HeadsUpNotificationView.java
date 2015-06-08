@@ -462,7 +462,6 @@ public class HeadsUpNotificationView extends FrameLayout implements SwipeHelper.
                     mFirstY = ev.getY();
                     mConsuming = false;
                     break;
-
                 case MotionEvent.ACTION_MOVE:
                     if (DEBUG_EDGE_SWIPE) Log.d(TAG, "action move " + ev.getY());
                     final float dY = ev.getY() - mFirstY;
@@ -477,7 +476,6 @@ public class HeadsUpNotificationView extends FrameLayout implements SwipeHelper.
                         mConsuming = true;
                     }
                     break;
-
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     if (DEBUG_EDGE_SWIPE) Log.d(TAG, "action done" );
