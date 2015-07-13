@@ -424,6 +424,10 @@
          This will disable all third party applications you have installed.
          They will be restored when you reboot again.</string>
 
+    <!-- Reboot Confirmation Dialog.  Message in the confirmation dialog
+         when the user asks to reboot. [CHAR LIMIT=NONE] -->
+    <string name="reboot_question">Do you want to reboot?</string>
+
     <!-- Title of dialog to confirm rebooting. -->
     <string name="reboot_title">Reboot</string>
 
