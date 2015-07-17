@@ -143,6 +143,7 @@ public class NavigationBarView extends LinearLayout {
     private boolean mIsAnimating = false;
     private boolean mDimNavButtonsAnimate;
     private int mDimNavButtonsAnimateDuration;
+    private boolean mDimNavButtonsTouchAnywhere;
 
     private ArrayList<ActionConfig> mButtonsConfig;
     private List<Integer> mButtonIdList;
@@ -304,6 +305,9 @@ public class NavigationBarView extends LinearLayout {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         initDownStates(event);
+        if (mDimNavButtonsTouchAnywhere) {
+            onNavButtonTouched();
+        }
         if (!mDelegateIntercepted && mTaskSwitchHelper.onTouchEvent(event)) {
             return true;
         }
@@ -1100,6 +1104,8 @@ public class NavigationBarView extends LinearLayout {
                     Settings.System.DIM_NAV_BUTTONS_ANIMATE), false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.DIM_NAV_BUTTONS_ANIMATE_DURATION), false, this);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.DIM_NAV_BUTTONS_TOUCH_ANYWHERE), false, this);
 
             onChange(false);
         }
@@ -1138,6 +1144,9 @@ public class NavigationBarView extends LinearLayout {
             mDimNavButtonsAnimateDuration = Settings.System.getIntForUser(resolver,
                     Settings.System.DIM_NAV_BUTTONS_ANIMATE_DURATION, 2000,
                     UserHandle.USER_CURRENT);
+            mDimNavButtonsTouchAnywhere = (Settings.System.getIntForUser(resolver,
+                    Settings.System.DIM_NAV_BUTTONS_TOUCH_ANYWHERE, 0,
+                    UserHandle.USER_CURRENT) == 1);
         }
     }
 
