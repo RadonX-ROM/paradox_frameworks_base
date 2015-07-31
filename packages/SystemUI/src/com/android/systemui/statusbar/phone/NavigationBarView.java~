@@ -25,6 +25,8 @@ import android.app.ActivityManagerNative;
 import android.app.StatusBarManager;
 import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.Configuration;
@@ -36,6 +38,7 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
 import android.os.Handler;
 import android.os.Message;
+import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -104,6 +107,8 @@ public class NavigationBarView extends LinearLayout {
     private int mMenuSetting;
     private boolean mOverrideMenuKeys;
 
+    private boolean mIsHandlerCallbackActive = false;
+
     final Display mDisplay;
     View mCurrentView = null;
     View[] mRotatedViews = new View[4];
@@ -143,6 +148,9 @@ public class NavigationBarView extends LinearLayout {
     private boolean mIsAnimating = false;
     private boolean mDimNavButtonsAnimate;
     private int mDimNavButtonsAnimateDuration;
+    private boolean mDimNavButtonsTouchAnywhere;
+    private PowerManager mPowerManager;
+    private boolean mIsPowerSaveMode = false;
 
     private ArrayList<ActionConfig> mButtonsConfig;
     private List<Integer> mButtonIdList;
@@ -188,7 +196,9 @@ public class NavigationBarView extends LinearLayout {
             } else if (view.getId() == R.id.home && transitionType == LayoutTransition.APPEARING) {
                 mHomeAppearing = false;
             }
-            onNavButtonTouched();
+
+            if (view.getId() == R.id.home)
+                onNavButtonTouched();
         }
 
         public void onBackAltCleared() {
@@ -215,18 +225,46 @@ public class NavigationBarView extends LinearLayout {
         }
     };
 
+    // provides a listener for the empty space in the navbar
+    private final OnTouchListener mNavButtonsTouchListener = new OnTouchListener() {
+        @Override
+        public boolean onTouch(View v, MotionEvent event) {
+                onNavButtonTouched();
+            return true;
+        }
+    };
+
     public void onNavButtonTouched() {
-        mHandler.removeCallbacks(mNavButtonDimmer);
-        if (getNavButtons() != null) {
+        if (mIsHandlerCallbackActive) {
+            mHandler.removeCallbacks(mNavButtonDimmer);
+            mIsHandlerCallbackActive = false;
+        }
+
+        // power saving mode is on, do nothing
+        if (mIsPowerSaveMode) return;
+
+        final ViewGroup navButtons = getNavButtons();
+        if (navButtons != null) {
+            // restore alpha to previous state first
             if (mIsDim || mIsAnimating) {
                 mIsAnimating = false;
-                getNavButtons().clearAnimation();
-                mIsDim = false;
-                getNavButtons().setAlpha(mOriginalAlpha);
+                resetDim(navButtons);
             }
             if (mDimNavButtons) {
                 mHandler.postDelayed(mNavButtonDimmer, mDimNavButtonsTimeout);
+                mIsHandlerCallbackActive = true;
             }
+        }
+    }
+
+    private void resetDim(ViewGroup navButtons) {
+        if (navButtons == null) {
+            navButtons = getNavButtons();
+        }
+        if (navButtons != null) {
+            navButtons.clearAnimation();
+            mIsDim = false;
+            navButtons.setAlpha(mOriginalAlpha);
         }
     }
 
@@ -253,6 +291,26 @@ public class NavigationBarView extends LinearLayout {
         }
     }
 
+    // broadcast receiver for power saving mode
+    private final BroadcastReceiver mBatteryDimReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (DEBUG) {
+                Log.d(TAG, "Broadcast received: " + intent.getAction());
+            }
+
+            mIsPowerSaveMode = mPowerManager.isPowerSaveMode();
+            if (mIsPowerSaveMode) {
+                // battery is low, no dim until charged
+                resetDim(null);
+            }
+            onNavButtonTouched();
+        }
+    };
+
+    private final IntentFilter mBatteryFilter = new IntentFilter(
+        PowerManager.ACTION_POWER_SAVE_MODE_CHANGING);
+
     public NavigationBarView(Context context, AttributeSet attrs) {
         super(context, attrs);
 
@@ -272,6 +330,28 @@ public class NavigationBarView extends LinearLayout {
 
         mButtonsConfig = ActionHelper.getNavBarConfig(mContext);
         mButtonIdList = new ArrayList<Integer>();
+<<<<<<< HEAD
+=======
+
+        mSettingsObserver = new SettingsObserver(new Handler());
+
+        mPowerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        mIsPowerSaveMode = mPowerManager.isPowerSaveMode();
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        mSettingsObserver.observe();
+        mContext.registerReceiver(mBatteryDimReceiver, mBatteryFilter);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        mSettingsObserver.unobserve();
+        mContext.unregisterReceiver(mBatteryDimReceiver);
+>>>>>>> 44534bf... SystemUI: SlimDim performance boost
     }
 
     public BarTransitions getBarTransitions() {
@@ -295,6 +375,9 @@ public class NavigationBarView extends LinearLayout {
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         initDownStates(event);
+        if (mDimNavButtonsTouchAnywhere) {
+            onNavButtonTouched();
+        }
         if (!mDelegateIntercepted && mTaskSwitchHelper.onTouchEvent(event)) {
             return true;
         }
@@ -330,7 +413,7 @@ public class NavigationBarView extends LinearLayout {
         return intercept;
     }
 
-    private H mHandler = new H();
+    private final H mHandler = new H();
 
     public List<Integer> getButtonIdList() {
         return mButtonIdList;
@@ -368,8 +451,6 @@ public class NavigationBarView extends LinearLayout {
         return mCurrentView.findViewById(R.id.ime_switcher);
     }
 
-<<<<<<< HEAD
-=======
     public ViewGroup getNavButtons() {
         return (ViewGroup) mCurrentView.findViewById(R.id.nav_buttons);
     }
@@ -382,7 +463,6 @@ public class NavigationBarView extends LinearLayout {
         return mCurrentView.findViewById(R.id.ime_right);
     }
 
->>>>>>> c86f0d0... SystemUI: SlimDim [1/2]
     public void setOverrideMenuKeys(boolean b) {
         mOverrideMenuKeys = b;
         setMenuVisibility(mShowMenu, true /* force */);
@@ -694,8 +774,9 @@ public class NavigationBarView extends LinearLayout {
             setSlippery(disableHome && disableRecent && disableBack);
         }
 
-        if (getNavButtons() != null) {
-            LayoutTransition lt = getNavButtons().getLayoutTransition();
+        final ViewGroup navButtons = getNavButtons();
+        if (navButtons != null) {
+            LayoutTransition lt = navButtons.getLayoutTransition();
             if (lt != null) {
                 if (!lt.getTransitionListeners().contains(mTransitionListener)) {
                     lt.addTransitionListener(mTransitionListener);
@@ -818,6 +899,11 @@ public class NavigationBarView extends LinearLayout {
 
         if (getImeSwitchButton() != null)
             getImeSwitchButton().setOnClickListener(mImeSwitcherClickListener);
+        if (mDimNavButtons) {
+            final ViewGroup navButtons = getNavButtons();
+            if (navButtons != null)
+                navButtons.setOnTouchListener(mNavButtonsTouchListener);
+        }
 
         updateRTLOrder();
     }
@@ -843,6 +929,11 @@ public class NavigationBarView extends LinearLayout {
 
         if (getImeSwitchButton() != null)
             getImeSwitchButton().setOnClickListener(mImeSwitcherClickListener);
+        if (mDimNavButtons) {
+            final ViewGroup navButtons = getNavButtons();
+            if (navButtons != null)
+                navButtons.setOnTouchListener(mNavButtonsTouchListener);
+        }
 
         mDeadZone = (DeadZone) mCurrentView.findViewById(R.id.deadzone);
 
@@ -1065,8 +1156,6 @@ public class NavigationBarView extends LinearLayout {
 
     }
 
-<<<<<<< HEAD
-=======
     private class SettingsObserver extends ContentObserver {
 
         SettingsObserver(Handler handler) {
@@ -1088,6 +1177,8 @@ public class NavigationBarView extends LinearLayout {
                     Settings.System.DIM_NAV_BUTTONS_ANIMATE), false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.DIM_NAV_BUTTONS_ANIMATE_DURATION), false, this);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.DIM_NAV_BUTTONS_TOUCH_ANYWHERE), false, this);
 
             onChange(false);
         }
@@ -1126,6 +1217,9 @@ public class NavigationBarView extends LinearLayout {
             mDimNavButtonsAnimateDuration = Settings.System.getIntForUser(resolver,
                     Settings.System.DIM_NAV_BUTTONS_ANIMATE_DURATION, 2000,
                     UserHandle.USER_CURRENT);
+            mDimNavButtonsTouchAnywhere = (Settings.System.getIntForUser(resolver,
+                    Settings.System.DIM_NAV_BUTTONS_TOUCH_ANYWHERE, 0,
+                    UserHandle.USER_CURRENT) == 1);
         }
     }
 
@@ -1139,7 +1233,6 @@ public class NavigationBarView extends LinearLayout {
         }
     }
 
->>>>>>> c86f0d0... SystemUI: SlimDim [1/2]
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("NavigationBarView {");
         final Rect r = new Rect();
@@ -1214,7 +1307,9 @@ public class NavigationBarView extends LinearLayout {
     private Runnable mNavButtonDimmer = new Runnable() {
         @Override
         public void run() {
-            if (getNavButtons() != null && mIsDim == false) {
+            mIsHandlerCallbackActive = false;
+            final ViewGroup navButtons = getNavButtons();
+            if (navButtons != null && !mIsDim) {
                 mIsDim = true;
                 if (mDimNavButtonsAnimate) {
                     AlphaAnimation fadeOut =
@@ -1239,9 +1334,9 @@ public class NavigationBarView extends LinearLayout {
                         }
                     });
                     fadeOut.setFillAfter(true);
-                    getNavButtons().startAnimation(fadeOut);
+                    navButtons.startAnimation(fadeOut);
                 } else {
-                    getNavButtons().setAlpha(mDimNavButtonsAlpha);
+                    navButtons.setAlpha(mDimNavButtonsAlpha);
                 }
             }
         }
