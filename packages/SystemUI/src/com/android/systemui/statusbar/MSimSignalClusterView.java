@@ -45,7 +45,7 @@ public class MSimSignalClusterView
         extends LinearLayout
         implements MSimNetworkControllerImpl.MSimSignalCluster {
 
-    static final boolean DEBUG = true;
+    static final boolean DEBUG = false;
     static final String TAG = "MSimSignalClusterView";
 
     private final int STATUS_BAR_STYLE_ANDROID_DEFAULT = 0;
@@ -183,7 +183,6 @@ public class MSimSignalClusterView
 
         mWifiGroup      = (ViewGroup) findViewById(R.id.wifi_combo);
         mWifi           = (ImageView) findViewById(R.id.wifi_signal);
-        mWifiActivity   = (ImageView) findViewById(R.id.wifi_inout);
         mSpacer         =             findViewById(R.id.spacer);
         mAirplane       = (ImageView) findViewById(R.id.airplane);
 
@@ -421,7 +420,7 @@ public class MSimSignalClusterView
         if (mWifiVisible) {
             mWifiGroup.setVisibility(View.VISIBLE);
             mWifi.setImageResource(mWifiStrengthId);
-            mWifiActivity.setImageResource(mWifiActivityId);
+            if (mWifiActivity != null) mWifiActivity.setImageResource(mWifiActivityId);
             mWifiGroup.setContentDescription(mWifiDescription);
         } else {
             mWifiGroup.setVisibility(View.GONE);
