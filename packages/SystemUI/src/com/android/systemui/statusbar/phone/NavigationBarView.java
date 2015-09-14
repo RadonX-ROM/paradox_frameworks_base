@@ -474,14 +474,14 @@ public class NavigationBarView extends LinearLayout {
     final Runnable mNotifyImeLayoutChange = new Runnable() {
         @Override
         public void run() {
-            setupNavigationButtons(getButtonsArray(mIMEKeyLayout));
+            setupNavigationButtons(getButtonsArray(mIMEKeyLayout.split("\\|")));
         }
     };
 
     final Runnable mGotStuckLayoutChange = new Runnable() {
         @Override
         public void run() {
-            setupNavigationButtons(getButtonsArray(mDefaultLayout));
+            setupNavigationButtons(getButtonsArray(mDefaultLayout.split("\\|")));
             if (getButtonView(ACTION_BACK) != null)
                     ((ImageView) getButtonView(ACTION_BACK)).setImageResource(R.drawable.ic_sysbar_back_ime);
         }
@@ -723,16 +723,15 @@ public class NavigationBarView extends LinearLayout {
                             mContext.getResources().getString(R.string.def_navbar_layout_warning),
                             200).show();
                 }
-                mAllButtonContainers.add(getButtonsArray(mDefaultLayout));
+                mAllButtonContainers.add(getButtonsArray(mDefaultLayout.split("\\|")));
             } else {
-                mAllButtonContainers.add(getButtonsArray(mButtonContainerStrings[j]));
+                mAllButtonContainers.add(getButtonsArray(mButtonContainerStrings[j].split("\\|")));
             }
         }
         setupNavigationButtons(getCurrentButtonArray());
     }
 
-    private ArrayList<KeyButtonInfo> getButtonsArray(final String userButtonString) {
-        final String[] userButtons = userButtonString.split("\\|");
+    private ArrayList<KeyButtonInfo> getButtonsArray(final String[] userButtons) {
         final ArrayList<KeyButtonInfo> mButtonsContainer = new ArrayList<KeyButtonInfo>();
         for (String button : userButtons) {
             final String[] actions = button.split(",", 4);
