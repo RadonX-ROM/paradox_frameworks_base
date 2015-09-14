@@ -61,12 +61,9 @@ interface IStatusBarService
     void toggleRecentApps();
     void preloadRecentApps();
     void cancelPreloadRecentApps();
-<<<<<<< HEAD
-=======
     void setAutoRotate(boolean enabled);
     void showCustomIntentAfterKeyguard(inout Intent intent);
     void toggleScreenshot();
     void toggleLastApp();
     void toggleKillApp();
->>>>>>> 1747e4b... [1/2] Slims Hardware Key Rebinding
 }
