@@ -46,5 +46,5 @@ oneway interface IStatusBar
     void showScreenPinningRequest();
     void notifyLayoutChange(int direction);
     void setAutoRotate(boolean enabled);
-    void showCustomIntentAfterKeyguard();
+    void showCustomIntentAfterKeyguard(inout Intent intent);
 }

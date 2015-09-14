@@ -2976,10 +2976,150 @@ public final class Settings {
         public static final String SAFE_HEADSET_VOLUME = "safe_headset_volume";
 
         /**
+         * Show or hide clock
+         * 0 - hide
+         * 1 - show (default)
+         * @hide
+         */
+        @Deprecated
+        public static final String DOCK_SOUNDS_ENABLED = Global.DOCK_SOUNDS_ENABLED;
+
+        /**
+         * Whether to play sounds when the keyguard is shown and dismissed.
+         * @hide
+         */
+        public static final String LOCKSCREEN_SOUNDS_ENABLED = "lockscreen_sounds_enabled";
+
+        /**
+         * Whether the lockscreen should be completely disabled.
+         * @hide
+         */
+        public static final String LOCKSCREEN_DISABLED = "lockscreen.disabled";
+
+        /**
+         * @deprecated Use {@link android.provider.Settings.Global#LOW_BATTERY_SOUND}
+         * instead
+         * @hide
+         */
+        @Deprecated
+        public static final String LOW_BATTERY_SOUND = Global.LOW_BATTERY_SOUND;
+
+        /**
+         * @deprecated Use {@link android.provider.Settings.Global#DESK_DOCK_SOUND}
+         * instead
+         * @hide
+         */
+        @Deprecated
+        public static final String DESK_DOCK_SOUND = Global.DESK_DOCK_SOUND;
+
+        /**
+         * @deprecated Use {@link android.provider.Settings.Global#DESK_UNDOCK_SOUND}
+         * instead
+         * @hide
+         */
+        @Deprecated
+        public static final String DESK_UNDOCK_SOUND = Global.DESK_UNDOCK_SOUND;
+
+        /**
+         * @deprecated Use {@link android.provider.Settings.Global#CAR_DOCK_SOUND}
+         * instead
+         * @hide
+         */
+        @Deprecated
+        public static final String CAR_DOCK_SOUND = Global.CAR_DOCK_SOUND;
+
+        /**
+         * @deprecated Use {@link android.provider.Settings.Global#CAR_UNDOCK_SOUND}
+         * instead
+         * @hide
+         */
+        @Deprecated
+        public static final String CAR_UNDOCK_SOUND = Global.CAR_UNDOCK_SOUND;
+
+        /**
+         * @deprecated Use {@link android.provider.Settings.Global#LOCK_SOUND}
+         * instead
+         * @hide
+         */
+        @Deprecated
+        public static final String LOCK_SOUND = Global.LOCK_SOUND;
+
+        /**
+         * @deprecated Use {@link android.provider.Settings.Global#UNLOCK_SOUND}
+         * instead
+         * @hide
+         */
+        @Deprecated
+        public static final String UNLOCK_SOUND = Global.UNLOCK_SOUND;
+
+        /**
+         * Receive incoming SIP calls?
+         * 0 = no
+         * 1 = yes
+         * @hide
+         */
+        public static final String SIP_RECEIVE_CALLS = "sip_receive_calls";
+
+        /**
+         * Call Preference String.
+         * "SIP_ALWAYS" : Always use SIP with network access
+         * "SIP_ADDRESS_ONLY" : Only if destination is a SIP address
+         * @hide
+         */
+        public static final String SIP_CALL_OPTIONS = "sip_call_options";
+
+        /**
+         * One of the sip call options: Always use SIP with network access.
+         * @hide
+         */
+        public static final String SIP_ALWAYS = "SIP_ALWAYS";
+
+        /**
          * Whether to dismiss all recents tasks
          * @hide
          */
         public static final String RECENTS_CLEAR_ALL_DISMISS_ALL = "recents_clear_all_dismiss_all";
+
+        /**
+         * One of the sip call options: Only if destination is a SIP address.
+         * @hide
+         */
+        public static final String SIP_ADDRESS_ONLY = "SIP_ADDRESS_ONLY";
+
+        /**
+         * @deprecated Use SIP_ALWAYS or SIP_ADDRESS_ONLY instead.  Formerly used to indicate that
+         * the user should be prompted each time a call is made whether it should be placed using
+         * SIP.  The {@link com.android.providers.settings.DatabaseHelper} replaces this with
+         * SIP_ADDRESS_ONLY.
+         * @hide
+         */
+        @Deprecated
+        public static final String SIP_ASK_ME_EACH_TIME = "SIP_ASK_ME_EACH_TIME";
+
+        /**
+         * Pointer speed setting.
+         * This is an integer value in a range between -7 and +7, so there are 15 possible values.
+         *   -7 = slowest
+         *    0 = default speed
+         *   +7 = fastest
+         * @hide
+         */
+        public static final String POINTER_SPEED = "pointer_speed";
+
+        /**
+         * Whether lock-to-app will be triggered by long-press on recents.
+         * @hide
+         */
+        public static final String LOCK_TO_APP_ENABLED = "lock_to_app_enabled";
+
+        /**
+         * I am the lolrus.
+         * <p>
+         * Nonzero values indicate that the user has a bukkit.
+         * Backward-compatible with <code>PrefGetPreference(prefAllowEasterEggs)</code>.
+         * @hide
+         */
+        public static final String EGG_MODE = "egg_mode";
 
         /**
         * Navigation bar height when it is on protrait
