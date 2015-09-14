@@ -106,6 +106,9 @@ public class NavigationBarView extends LinearLayout {
     private DelegateViewHelper mDelegateHelper;
     private DeadZone mDeadZone;
     private final NavigationBarTransitions mBarTransitions;
+    private KeyButtonView button;
+    private LayoutChangerButtonView changer;
+    private KeyButtonInfo info;
 
     // workaround for LayoutTransitions leaving the nav buttons in a weird state (bug 5549288)
     final static boolean WORKAROUND_INVALID_LAYOUT = true;
@@ -753,8 +756,8 @@ public class NavigationBarView extends LinearLayout {
             // multiple layouts: left-side layout changer
             if (mButtonLayouts > 1) {
                 if (!mImeLayout || (mImeLayout && !showingIME)) {
-                    KeyButtonInfo info = new KeyButtonInfo(ACTION_LAYOUT_LEFT);
-                    LayoutChangerButtonView changer = new LayoutChangerButtonView(mContext, null);
+                    info = new KeyButtonInfo(ACTION_LAYOUT_LEFT);
+                    changer = new LayoutChangerButtonView(mContext, null);
                     changer.setButtonActions(info);
                     if (mTablet) {
                         changer.setImageResource(R.drawable.ic_sysbar_layout_left);
@@ -769,8 +772,8 @@ public class NavigationBarView extends LinearLayout {
                     addLightsOutButton(lightsOut, changer, landscape, false);
                 }
                 if (mImeLayout && showingIME) {
-                    KeyButtonInfo info = new KeyButtonInfo(ACTION_IME_LAYOUT);
-                    LayoutChangerButtonView changer = new LayoutChangerButtonView(mContext, null);
+                    info = new KeyButtonInfo(ACTION_IME_LAYOUT);
+                    changer = new LayoutChangerButtonView(mContext, null);
                     changer.setButtonActions(info);
                     changer.setImageResource(R.drawable.ic_sysbar_ime_arrows);
                     changer.setLayoutParams(getLayoutParams(landscape, mLayoutChangerWidth, 0f));
@@ -783,8 +786,8 @@ public class NavigationBarView extends LinearLayout {
             // single layout: AOSP key spacing on left side
             if (mLegacyMenu && mButtonLayouts == 1) {
 				if (mImeLayout) {
-                    KeyButtonInfo info = new KeyButtonInfo(ACTION_IME_LAYOUT);
-                    LayoutChangerButtonView changer = new LayoutChangerButtonView(mContext, null);
+                    info = new KeyButtonInfo(ACTION_IME_LAYOUT);
+                    changer = new LayoutChangerButtonView(mContext, null);
                     changer.setButtonActions(info);
                     changer.setImageResource(R.drawable.ic_sysbar_ime_arrows);
                     changer.setLayoutParams(getLayoutParams(landscape, mTablet ? mMenuButtonWidth : separatorSize, 0f));
@@ -804,8 +807,9 @@ public class NavigationBarView extends LinearLayout {
 
             // add the custom buttons
             for (int j = 0; j < length; j++) {
-                KeyButtonView button = new KeyButtonView(mContext, null);
-                button.setButtonActions(buttonsArray.get(j));
+                info = buttonsArray.get(j);
+                button = new KeyButtonView(mContext, null);
+                button.setButtonActions(info);
                 button.setLongPressTimeout(mLongPressTimeout);
                 button.setLayoutParams(getLayoutParams(landscape, mButtonWidth, mTablet ? 1f : 0.5f));
 
@@ -820,12 +824,12 @@ public class NavigationBarView extends LinearLayout {
 
             // single layout: legacy menu button/AOSP spacing on right side
             if (mLegacyMenu && mButtonLayouts == 1) {
-                KeyButtonInfo info = new KeyButtonInfo(mImeLayout
+                info = new KeyButtonInfo(mImeLayout
                                     ? mShowMenu
                                         ? ACTION_MENU
                                         : ACTION_IME
                                     : ACTION_MENU);
-                LayoutChangerButtonView changer = new LayoutChangerButtonView(mContext, null);
+                changer = new LayoutChangerButtonView(mContext, null);
                 changer.setButtonActions(info);
                 changer.setImageResource(mImeLayout
                                    ? mShowMenu
@@ -846,10 +850,10 @@ public class NavigationBarView extends LinearLayout {
             // multiple layouts: right-side layout changer button/ime switcher/legacy menu
             if (mButtonLayouts > 1) {
                 if (!mImeLayout || (mImeLayout && !showingIME)) {
-                    KeyButtonInfo info = new KeyButtonInfo(mShowMenu
+                    info = new KeyButtonInfo(mShowMenu
                             ? ACTION_MENU
                             : ACTION_LAYOUT_RIGHT);
-                    LayoutChangerButtonView changer = new LayoutChangerButtonView(mContext, null);
+                    changer = new LayoutChangerButtonView(mContext, null);
                     changer.setButtonActions(info);
                     if (mTablet) {
                         changer.setImageResource(mShowMenu
@@ -868,8 +872,8 @@ public class NavigationBarView extends LinearLayout {
                     addLightsOutButton(lightsOut, changer, landscape, false);
                 }
                 if (mImeLayout && showingIME) {
-                    KeyButtonInfo info = new KeyButtonInfo(ACTION_IME);
-                    LayoutChangerButtonView changer = new LayoutChangerButtonView(mContext, null);
+                    info = new KeyButtonInfo(ACTION_IME);
+                    changer = new LayoutChangerButtonView(mContext, null);
                     changer.setButtonActions(info);
                     changer.setImageResource(R.drawable.ic_ime_switcher_default);
                     changer.setLayoutParams(getLayoutParams(landscape, mLayoutChangerWidth, 0f));
