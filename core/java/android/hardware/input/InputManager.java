@@ -184,7 +184,7 @@ public final class InputManager {
      * @hide
      */
     public static void triggerVirtualKeypress(int keyCode) {
-        triggerVirtualKeypress(keyCode, 0);
+        triggerVirtualKeypress(keyCode, INJECT_INPUT_EVENT_MODE_ASYNC);
     }
 
     /**
