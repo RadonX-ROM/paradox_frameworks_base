@@ -454,56 +454,6 @@ public class StatusBarManagerService extends IStatusBarService.Stub {
         }
     }
 
-    @Override
-    public void setAutoRotate(boolean enabled) {
-        if (mBar != null) {
-            try {
-                mBar.setAutoRotate(enabled);
-            } catch (RemoteException ex) {}
-        }
-    }
-
-    @Override
-    public void toggleLastApp() {
-        if (mBar != null) {
-            try {
-                mBar.toggleLastApp();
-            } catch (RemoteException ex) {}
-        }
-    }
-
-    @Override
-    public void toggleKillApp() {
-        if (mBar != null) {
-            try {
-                mBar.toggleKillApp();
-            } catch (RemoteException ex) {}
-        }
-    }
-
-    /**
-     * Ask keyguard to invoke a custom intent after dismissing keyguard
-     * @hide
-     */
-    @Override
-    public void showCustomIntentAfterKeyguard(Intent intent) {
-        enforceStatusBarService();
-        if (mBar != null) {
-            try {
-                mBar.showCustomIntentAfterKeyguard(intent);
-            } catch (RemoteException ex) {}
-        }
-    }
-
-    @Override
-    public void toggleScreenshot() {
-        if (mBar != null) {
-            try {
-                mBar.toggleScreenshot();
-            } catch (RemoteException ex) {}
-        }
-    }
-
     private void enforceStatusBar() {
         mContext.enforceCallingOrSelfPermission(android.Manifest.permission.STATUS_BAR,
                 "StatusBarManagerService");
