@@ -16,7 +16,6 @@
 
 package com.android.systemui.statusbar;
 
-import android.content.Intent;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
@@ -62,8 +61,6 @@ public class CommandQueue extends IStatusBar.Stub {
     private static final int MSG_TOGGLE_KILL_APP            = 22 << MSG_SHIFT;
     private static final int MSG_TOGGLE_SCREENSHOT          = 23 << MSG_SHIFT;
 
-    private static final int MSG_START_CUSTOM_INTENT_AFTER_KEYGUARD = 20 << MSG_SHIFT;
-
     public static final int FLAG_EXCLUDE_NONE = 0;
     public static final int FLAG_EXCLUDE_SEARCH_PANEL = 1 << 0;
     public static final int FLAG_EXCLUDE_RECENTS_PANEL = 1 << 1;
@@ -108,7 +105,6 @@ public class CommandQueue extends IStatusBar.Stub {
         public void toggleLastApp();
         public void toggleKillApp();
         public void toggleScreenshot();
-        public void showCustomIntentAfterKeyguard(Intent intent);
     }
 
     public CommandQueue(Callbacks callbacks, StatusBarIconList list) {
@@ -277,23 +273,6 @@ public class CommandQueue extends IStatusBar.Stub {
         }
     }
 
-<<<<<<< HEAD
-=======
-    public void setAutoRotate(boolean enabled) {
-        synchronized (mList) {
-            mHandler.removeMessages(MSG_SET_AUTOROTATE_STATUS);
-            mHandler.obtainMessage(MSG_SET_AUTOROTATE_STATUS,
-                enabled ? 1 : 0, 0, null).sendToTarget();
-        }
-    }
-
-    public void showCustomIntentAfterKeyguard(Intent intent) {
-        mHandler.removeMessages(MSG_START_CUSTOM_INTENT_AFTER_KEYGUARD);
-        Message m = mHandler.obtainMessage(MSG_START_CUSTOM_INTENT_AFTER_KEYGUARD, 0, 0, intent);
-        m.sendToTarget();
-    }
-
->>>>>>> f1671a4... Frameworks: add ability to send a custom intent after keyguard is finished
     private final class H extends Handler {
         public void handleMessage(Message msg) {
             final int what = msg.what & MSG_MASK;
@@ -384,9 +363,6 @@ public class CommandQueue extends IStatusBar.Stub {
                     break;
                 case MSG_TOGGLE_SCREENSHOT:
                     mCallbacks.toggleScreenshot();
-                    break;
-                case MSG_START_CUSTOM_INTENT_AFTER_KEYGUARD:
-                    mCallbacks.showCustomIntentAfterKeyguard((Intent) msg.obj);
                     break;
             }
         }
