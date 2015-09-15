@@ -61,8 +61,4 @@ interface IStatusBarService
     void toggleRecentApps();
     void preloadRecentApps();
     void cancelPreloadRecentApps();
-    void setAutoRotate(boolean enabled);
-    void toggleScreenshot();
-    void toggleLastApp();
-    void toggleKillApp();
 }
