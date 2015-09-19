@@ -28,6 +28,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Binder;
 import android.os.RemoteException;
+import android.provider.DrmStore;
 import android.os.SystemProperties;
 import android.provider.MediaStore;
 import android.provider.Settings;
@@ -57,6 +58,12 @@ public class Ringtone {
         MediaStore.Audio.Media._ID,
         MediaStore.Audio.Media.DATA,
         MediaStore.Audio.Media.TITLE
+    };
+
+    private static final String[] DRM_COLUMNS = new String[] {
+        DrmStore.Audio._ID,
+        DrmStore.Audio.DATA,
+        DrmStore.Audio.TITLE
     };
 
     private final Context mContext;
@@ -140,8 +147,8 @@ public class Ringtone {
     }
 
     /**
-     * Returns a human-presentable title for ringtone. Looks in media
-     * content provider. If not in either, uses the filename
+     * Returns a human-presentable title for ringtone. Looks in media and DRM
+     * content providers. If not in either, uses the filename
      * 
      * @param context A context used for querying. 
      */
@@ -176,7 +183,9 @@ public class Ringtone {
                 }
             } else {
                 try {
-                    if (MediaStore.AUTHORITY.equals(authority)) {
+                    if (DrmStore.AUTHORITY.equals(authority)) {
+                        cursor = res.query(uri, DRM_COLUMNS, null, null, null);
+                    } else if (MediaStore.AUTHORITY.equals(authority)) {
                         cursor = res.query(uri, MEDIA_COLUMNS, null, null, null);
                     }
                 } catch (SecurityException e) {
