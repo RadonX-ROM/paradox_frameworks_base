@@ -2260,5 +2260,5 @@
     <string-array name="config_forceEnabledComponents" translatable="false">
     </string-array>
 
-    <bool name="config_offscreenGestureSupport">false</bool>
+    <bool name="config_offscreenGestureSupport">true</bool>
 </resources>
