@@ -833,7 +833,7 @@ public class VolumePanel extends Handler implements DemoMode {
                     control.expandPanel.setVisibility(View.GONE);
                     updateSlider(control, true);
                 }
-            }.
+            }
         }
     }
 
