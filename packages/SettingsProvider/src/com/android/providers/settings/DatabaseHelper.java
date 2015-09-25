@@ -1861,17 +1861,10 @@ public class DatabaseHelper extends SQLiteOpenHelper {
 
         }
 
-        // From here on out, we can assume the user is coming from CM and will have these rows
-        if (upgradeVersion < 115) {
-            moveSettingsToNewTable(db, TABLE_SYSTEM, TABLE_SECURE,
-                    new String[] { Settings.Secure.STATS_COLLECTION }, true);
-            upgradeVersion = 115;
-        }
-
-        if (upgradeVersion < 116) {
+        if (upgradeVersion < 114) {
             moveSettingsToNewTable(db, TABLE_SYSTEM, TABLE_SECURE,
                     new String[] { Settings.Secure.VOLUME_LINK_NOTIFICATION }, true);
-            upgradeVersion = 116;
+            upgradeVersion = 114;
         }
 
         // *** Remember to update DATABASE_VERSION above!
