@@ -502,7 +502,6 @@ public class VolumePanel extends Handler implements DemoMode {
     private void setupVolumePanelBlur(boolean blurEnabled) {
         if (mDialog == null || mDialog.getWindow() == null) return;
 
-        Window window = mDialog.getWindow();
         if (blurEnabled) {
             //window.addPrivateFlags(WindowManager.LayoutParams.PRIVATE_FLAG_BLUR_WITH_MASKING);
             //window.setBlurMaskAlphaThreshold(0.48f);
@@ -832,10 +831,9 @@ public class VolumePanel extends Handler implements DemoMode {
                     mSliderPanel.addView(control.group);
                     control.group.setVisibility(View.VISIBLE);
                     control.expandPanel.setVisibility(View.GONE);
-                    updateSlider(control);
+                    updateSlider(control, true);
                 }
-            }
->>>>>>> SystemUI: Create expandable volume panel.
+            }.
         }
     }
 
@@ -848,7 +846,7 @@ public class VolumePanel extends Handler implements DemoMode {
                 if (control != null && control.streamType != mActiveStreamType) {
                     control.group.setVisibility(View.GONE);
                     control.expandPanel.setVisibility(View.GONE);
-                    updateSlider(control);
+                    updateSlider(control, true);
                 }
             }
         }
