@@ -828,6 +828,9 @@
     <!-- Battery saver notification dismiss text. [CHAR LIMIT=60] -->
     <string name="battery_saver_dismiss_title">Dismiss</string>
 
+    <!-- Battery saver notification dismiss text. [CHAR LIMIT=60] -->
+    <string name="battery_saver_dismiss_title">Dismiss</string>
+
     <!-- Battery level for expanded quick settings [CHAR LIMIT=2] -->
     <string name="battery_level_template"><xliff:g id="level" example="45">%d</xliff:g>%%</string>
 
