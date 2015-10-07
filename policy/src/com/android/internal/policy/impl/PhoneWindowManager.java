@@ -1912,9 +1912,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
                     Settings.System.ACCELEROMETER_ROTATION_ANGLES, -1,
                     UserHandle.USER_CURRENT);
 
-            mVolumeWakeScreen = Settings.System.getIntForUser(resolver,
-                    Settings.System.VOLUME_WAKE_SCREEN, 0, UserHandle.USER_CURRENT) != 0;
-
             mNavigationBarCanMove = Settings.System.getIntForUser(resolver,
                     Settings.System.NAVIGATION_BAR_CAN_MOVE,
                     mShortSizeDp < 600 ? 1 : 0, UserHandle.USER_CURRENT) == 1;
