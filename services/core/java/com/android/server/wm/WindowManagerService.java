@@ -312,6 +312,8 @@ public class WindowManagerService extends IWindowManager.Stub
 
     final private KeyguardDisableHandler mKeyguardDisableHandler;
 
+    private final int mSfHwRotation;
+
     final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -941,6 +943,9 @@ public class WindowManagerService extends IWindowManager.Stub
         } finally {
             SurfaceControl.closeTransaction();
         }
+
+        // Load hardware rotation from prop
+        mSfHwRotation = android.os.SystemProperties.getInt("ro.sf.hwrotation",0) / 90;
 
         updateCircularDisplayMaskIfNeeded();
         showEmulatorDisplayOverlayIfNeeded();
@@ -5575,6 +5580,12 @@ public class WindowManagerService extends IWindowManager.Stub
         }
     }
 
+    /* @hide */
+     @Override
+    public void toggleGlobalMenu() {
+        mPolicy.toggleGlobalMenu();
+    }
+
     void dispatchNewAnimatorScaleLocked(Session session) {
         mH.obtainMessage(H.NEW_ANIMATOR_SCALE, session).sendToTarget();
     }
@@ -6106,8 +6117,8 @@ public class WindowManagerService extends IWindowManager.Stub
      * of the target image.
      *
      * @param displayId the Display to take a screenshot of.
-     * @param width the width of the target bitmap
-     * @param height the height of the target bitmap
+     * @param width the width of the target bitmap or -1 for a full screenshot
+     * @param height the height of the target bitmap or -1 for a full screenshot
      * @param force565 if true the returned bitmap will be RGB_565, otherwise it
      *                 will be the same config as the surface
      */
@@ -6276,6 +6287,12 @@ public class WindowManagerService extends IWindowManager.Stub
                 // Constrain frame to the screen size.
                 frame.intersect(0, 0, dw, dh);
 
+                // use the whole frame if width and height are not constrained
+                if (width == -1 && height == -1) {
+                    width = frame.width();
+                    height = frame.height();
+                }
+
                 // Tell surface flinger what part of the image to crop. Take the top
                 // right part of the application, and crop the larger dimension to fit.
                 Rect crop = new Rect(frame);
@@ -6289,6 +6306,9 @@ public class WindowManagerService extends IWindowManager.Stub
 
                 // The screenshot API does not apply the current screen rotation.
                 rot = getDefaultDisplayContentLocked().getDisplay().getRotation();
+                // Allow for abnormal hardware orientation
+                rot = (rot + mSfHwRotation) % 4;
+
 
                 if (rot == Surface.ROTATION_90 || rot == Surface.ROTATION_270) {
                     rot = (rot == Surface.ROTATION_90) ? Surface.ROTATION_270 : Surface.ROTATION_90;

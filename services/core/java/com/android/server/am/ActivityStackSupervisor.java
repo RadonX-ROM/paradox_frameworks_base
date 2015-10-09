@@ -45,6 +45,8 @@ import android.app.IActivityContainer;
 import android.app.IActivityContainerCallback;
 import android.app.IActivityManager;
 import android.app.IApplicationThread;
+import android.app.Notification;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.ProfilerInfo;
 import android.app.ActivityManager.RunningTaskInfo;
@@ -146,14 +148,6 @@ public final class ActivityStackSupervisor implements DisplayListener {
     static final int RESUME_TOP_ACTIVITY_MSG = FIRST_SUPERVISOR_STACK_MSG + 2;
     static final int SLEEP_TIMEOUT_MSG = FIRST_SUPERVISOR_STACK_MSG + 3;
     static final int LAUNCH_TIMEOUT_MSG = FIRST_SUPERVISOR_STACK_MSG + 4;
-    public Performance mPerf = null;
-    public boolean mIsPerfBoostEnabled = false;
-    public int lBoostTimeOut = 0;
-    public int lBoostCpuBoost = 0;
-    public int lBoostCpuOffline = 0;
-    public int lBoostSchedBoost = 0;
-    public int lBoostPcDisblBoost = 0;
-    public int lBoostKsmBoost = 0;
     static final int HANDLE_DISPLAY_ADDED = FIRST_SUPERVISOR_STACK_MSG + 5;
     static final int HANDLE_DISPLAY_CHANGED = FIRST_SUPERVISOR_STACK_MSG + 6;
     static final int HANDLE_DISPLAY_REMOVED = FIRST_SUPERVISOR_STACK_MSG + 7;
@@ -184,6 +178,8 @@ public final class ActivityStackSupervisor implements DisplayListener {
     /** Short cut */
     WindowManagerService mWindowManager;
     DisplayManager mDisplayManager;
+
+    private NotificationManager mNoMan;
 
     /** Identifier counter for all ActivityStacks */
     private int mLastStackId = HOME_STACK_ID;
@@ -246,6 +242,8 @@ public final class ActivityStackSupervisor implements DisplayListener {
     /** Indicates if we are running on a Leanback-only (TV) device. Only initialized after
      * setWindowManager is called. **/
     private boolean mLeanbackOnlyDevice;
+
+    private PowerManager mPm;
 
     /**
      * We don't want to allow the device to go to sleep while in the process
@@ -311,26 +309,14 @@ public final class ActivityStackSupervisor implements DisplayListener {
         }
     }
 
+    /**
+     * Is heads up currently enabled? Shared between ActivityStacks
+    */
+    String mHeadsUpPackageName = null;
+
     public ActivityStackSupervisor(ActivityManagerService service) {
         mService = service;
         mHandler = new ActivityStackSupervisorHandler(mService.mHandler.getLooper());
-        /* Is perf lock for cpu-boost enabled during App 1st launch */
-        mIsPerfBoostEnabled = mService.mContext.getResources().getBoolean(
-                   com.android.internal.R.bool.config_enableCpuBoostForAppLaunch);
-        if(mIsPerfBoostEnabled) {
-           lBoostSchedBoost = mService.mContext.getResources().getInteger(
-                   com.android.internal.R.integer.launchboost_schedboost_param);
-           lBoostTimeOut = mService.mContext.getResources().getInteger(
-                   com.android.internal.R.integer.launchboost_timeout_param);
-           lBoostCpuBoost = mService.mContext.getResources().getInteger(
-                   com.android.internal.R.integer.launchboost_cpuboost_param);
-           lBoostCpuOffline = mService.mContext.getResources().getInteger(
-                   com.android.internal.R.integer.launchboost_cpu_6_7_offline_param);
-           lBoostPcDisblBoost = mService.mContext.getResources().getInteger(
-                   com.android.internal.R.integer.launchboost_pcdisbl_param);
-           lBoostKsmBoost = mService.mContext.getResources().getInteger(
-                   com.android.internal.R.integer.launchboost_ksmboost_param);
-       }
     }
 
     /**
@@ -338,10 +324,10 @@ public final class ActivityStackSupervisor implements DisplayListener {
      * initialized.  So we initialize our wakelocks afterwards.
      */
     void initPowerManagement() {
-        PowerManager pm = (PowerManager)mService.mContext.getSystemService(Context.POWER_SERVICE);
-        mGoingToSleep = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ActivityManager-Sleep");
+        mPm = (PowerManager)mService.mContext.getSystemService(Context.POWER_SERVICE);
+        mGoingToSleep = mPm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ActivityManager-Sleep");
         mLaunchingActivity =
-                pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ActivityManager-Launch");
+                mPm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "ActivityManager-Launch");
         mLaunchingActivity.setReferenceCounted(false);
     }
 
@@ -357,6 +343,13 @@ public final class ActivityStackSupervisor implements DisplayListener {
                 }
             }
             return mStatusBarService;
+        }
+    }
+
+    private void initNotificationManager() {
+        if (mNoMan == null) {
+            mNoMan = (NotificationManager) mService.mContext
+                    .getSystemService(Context.NOTIFICATION_SERVICE);
         }
     }
 
@@ -637,17 +630,21 @@ public final class ActivityStackSupervisor implements DisplayListener {
     }
 
     boolean allResumedActivitiesVisible() {
+        boolean foundResumed = false;
         for (int displayNdx = mActivityDisplays.size() - 1; displayNdx >= 0; --displayNdx) {
             ArrayList<ActivityStack> stacks = mActivityDisplays.valueAt(displayNdx).mStacks;
             for (int stackNdx = stacks.size() - 1; stackNdx >= 0; --stackNdx) {
                 final ActivityStack stack = stacks.get(stackNdx);
                 final ActivityRecord r = stack.mResumedActivity;
-                if (r != null && (!r.nowVisible || r.waitingVisible)) {
-                    return false;
+                if (r != null) {
+                    if (!r.nowVisible || r.waitingVisible) {
+                        return false;
+                    }
+                    foundResumed = true;
                 }
             }
         }
-        return true;
+        return foundResumed;
     }
 
     /**
@@ -1357,15 +1354,7 @@ public final class ActivityStackSupervisor implements DisplayListener {
                                     container.mActivityDisplay.mDisplayId)));
             Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER , "startActivityLocked");
             /* Acquire perf lock during new app launch */
-            if (mIsPerfBoostEnabled == true && mPerf == null) {
-                mPerf = new Performance();
-            }
-            if (mPerf != null) {
-                mPerf.perfLockAcquire(lBoostTimeOut, lBoostPcDisblBoost,
-                                      lBoostSchedBoost, lBoostCpuBoost,
-                                      lBoostCpuOffline,
-                                      lBoostKsmBoost);
-            }
+            mPm.cpuBoost(2000 * 1000);
             Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
         }
 
@@ -2748,24 +2737,15 @@ public final class ActivityStackSupervisor implements DisplayListener {
                 }
                 final ActivityRecord ar = stack.findTaskLocked(r);
                 if (ar != null) {
+                    BinderInternal.modifyDelayedGcParams();
                     return ar;
                 }
             }
         }
-        /* Acquire perf lock during new app launch */
-        if (mIsPerfBoostEnabled == true && mPerf == null) {
-            mPerf = new Performance();
-        }
-        if (mPerf != null) {
-            mPerf.perfLockAcquire(lBoostTimeOut, lBoostPcDisblBoost, lBoostSchedBoost,
-                                  lBoostCpuBoost, lBoostKsmBoost);
-        }
         /* Delay Binder Explicit GC during application launch */
         BinderInternal.modifyDelayedGcParams();
 
-        /* Delay Binder Explicit GC during application launch */
-        BinderInternal.modifyDelayedGcParams();
-
+        mPm.cpuBoost(2000 * 1000);
         if (DEBUG_TASKS) Slog.d(TAG, "No task found");
         return null;
     }
@@ -4171,5 +4151,23 @@ public final class ActivityStackSupervisor implements DisplayListener {
         }
 
         return onLeanbackOnly;
+    }
+
+    void hideHeadsUpCandidate(String packageName) {
+        try {
+            IStatusBarService statusbar = getStatusBarService();
+            if (statusbar != null) {
+                statusbar.hideHeadsUpCandidate(packageName);
+            }
+        } catch (RemoteException e) {
+            // re-acquire status bar service next time it is needed.
+            mStatusBarService = null;
+        }
+    }
+
+    boolean getHeadsUpNotificationsEnabledForPackage(String packageName, int uid) {
+        initNotificationManager();
+        return mNoMan.getHeadsUpNotificationsEnabledForPackage(
+                packageName, uid) != Notification.HEADS_UP_NEVER;
     }
 }

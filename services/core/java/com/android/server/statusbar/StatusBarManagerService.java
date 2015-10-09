@@ -17,6 +17,7 @@
 package com.android.server.statusbar;
 
 import android.app.StatusBarManager;
+import android.content.Intent;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.IBinder;
@@ -461,6 +462,73 @@ public class StatusBarManagerService extends IStatusBarService.Stub {
                 mBar.setAutoRotate(enabled);
             } catch (RemoteException ex) {}
         }
+    }
+
+    @Override
+    public void toggleLastApp() {
+        if (mBar != null) {
+            try {
+                mBar.toggleLastApp();
+            } catch (RemoteException ex) {}
+        }
+    }
+
+    @Override
+    public void toggleKillApp() {
+        if (mBar != null) {
+            try {
+                mBar.toggleKillApp();
+            } catch (RemoteException ex) {}
+        }
+    }
+
+    /**
+     * Ask keyguard to invoke a custom intent after dismissing keyguard
+     * @hide
+     */
+    @Override
+    public void showCustomIntentAfterKeyguard(Intent intent) {
+        enforceStatusBarService();
+        if (mBar != null) {
+            try {
+                mBar.showCustomIntentAfterKeyguard(intent);
+            } catch (RemoteException ex) {}
+        }
+    }
+
+    @Override
+    public void toggleScreenshot() {
+        if (mBar != null) {
+            try {
+                mBar.toggleScreenshot();
+            } catch (RemoteException ex) {}
+        }
+    }
+
+    /**
+     * @hide
+     */
+    @Override
+    public void hideHeadsUpCandidate(String packageName) {
+        enforceStatusBarService();
+        if (mBar != null) {
+            try {
+                mBar.hideHeadsUpCandidate(packageName);
+            } catch (RemoteException ex) {}
+            }
+    }
+
+    /**
+     * @hide
+     */
+    @Override
+    public void scheduleHeadsUpClose() {
+        enforceStatusBarService();
+        if (mBar != null) {
+            try {
+                mBar.scheduleHeadsUpClose();
+            } catch (RemoteException ex) {}
+            }
     }
 
     private void enforceStatusBar() {

@@ -256,6 +256,9 @@ public class ActivityManager {
     /** @hide User operation call: given user id is the current user, can't be stopped. */
     public static final int USER_OP_IS_CURRENT = -2;
 
+    /** @hide Process does not exist. */
+    public static final int PROCESS_STATE_NONEXISTENT = -1;
+
     /** @hide Process is a persistent system process. */
     public static final int PROCESS_STATE_PERSISTENT = 0;
 
@@ -482,8 +485,16 @@ public class ActivityManager {
      * @hide
      */
     static public boolean isHighEndGfx() {
-        return !isLowRamDeviceStatic() &&
-                !Resources.getSystem().getBoolean(com.android.internal.R.bool.config_avoidGfxAccel);
+        return (!isLowRamDeviceStatic() &&
+                !Resources.getSystem().getBoolean(com.android.internal.R.bool.config_avoidGfxAccel))
+                || isForcedHighEndGfx();
+    }
+
+    /**
+     * @hide
+     */
+    public static boolean isForcedHighEndGfx() {
+        return SystemProperties.getBoolean("persist.sys.force_highendgfx", false);
     }
 
     /**

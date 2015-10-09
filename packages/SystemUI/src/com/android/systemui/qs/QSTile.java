@@ -31,7 +31,6 @@ import android.view.ViewGroup;
 import com.android.systemui.qs.QSTile.State;
 import com.android.systemui.statusbar.policy.BluetoothController;
 import com.android.systemui.statusbar.policy.CastController;
-import com.android.systemui.statusbar.policy.FlashlightController;
 import com.android.systemui.statusbar.policy.KeyguardMonitor;
 import com.android.systemui.statusbar.policy.Listenable;
 import com.android.systemui.statusbar.policy.LocationController;
@@ -251,9 +250,6 @@ public abstract class QSTile<TState extends State> implements Listenable {
                 } else if (msg.what == SECONDARY_CLICK) {
                     name = "handleSecondaryClick";
                     handleSecondaryClick();
-                } else if (msg.what == LONG_CLICK) {
-                    name = "handleLongClick";
-                    handleLongClick();
                 } else if (msg.what == REFRESH_STATE) {
                     name = "handleRefreshState";
                     handleRefreshState(msg.obj);
@@ -272,6 +268,9 @@ public abstract class QSTile<TState extends State> implements Listenable {
                 } else if (msg.what == DESTROY) {
                     name = "handleDestroy";
                     handleDestroy();
+                } else if (msg.what == LONG_CLICK) {
+                    name = "handleLongClick";
+                    handleLongClick();
                 } else {
                     throw new IllegalArgumentException("Unknown msg: " + msg.what);
                 }
@@ -307,7 +306,6 @@ public abstract class QSTile<TState extends State> implements Listenable {
         HotspotController getHotspotController();
         CastController getCastController();
         VolumeComponent getVolumeComponent();
-        FlashlightController getFlashlightController();
         KeyguardMonitor getKeyguardMonitor();
 
         public interface Callback {
@@ -399,6 +397,7 @@ public abstract class QSTile<TState extends State> implements Listenable {
 
     public static class State {
         public boolean visible;
+        public boolean enabled = true;
         public int iconId;
         public Icon icon;
         public String label;
@@ -410,6 +409,7 @@ public abstract class QSTile<TState extends State> implements Listenable {
             if (other == null) throw new IllegalArgumentException();
             if (!other.getClass().equals(getClass())) throw new IllegalArgumentException();
             final boolean changed = other.visible != visible
+                    || !Objects.equals(other.enabled, enabled)
                     || !Objects.equals(other.icon, icon)
                     || !Objects.equals(other.label, label)
                     || !Objects.equals(other.contentDescription, contentDescription)
@@ -417,6 +417,7 @@ public abstract class QSTile<TState extends State> implements Listenable {
                     || !Objects.equals(other.dualLabelContentDescription,
                     dualLabelContentDescription);
             other.visible = visible;
+            other.enabled = enabled;
             other.icon = icon;
             other.label = label;
             other.contentDescription = contentDescription;
@@ -433,6 +434,7 @@ public abstract class QSTile<TState extends State> implements Listenable {
         protected StringBuilder toStringBuilder() {
             final StringBuilder sb = new StringBuilder(getClass().getSimpleName()).append('[');
             sb.append("visible=").append(visible);
+            sb.append(",enabled=").append(enabled);
             sb.append(",icon=").append(icon);
             sb.append(",label=").append(label);
             sb.append(",contentDescription=").append(contentDescription);

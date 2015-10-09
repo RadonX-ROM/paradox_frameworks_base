@@ -172,6 +172,7 @@ import android.os.FileUtils;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.IPermissionController;
+import android.os.IProcessInfoService;
 import android.os.IRemoteCallback;
 import android.os.IUserManager;
 import android.os.Looper;
@@ -412,16 +413,6 @@ public final class ActivityManagerService extends ActivityManagerNative
                     + " queue");
         }
         return (isFg) ? mFgBroadcastQueue : mBgBroadcastQueue;
-    }
-
-    BroadcastRecord broadcastRecordForReceiverLocked(IBinder receiver) {
-        for (BroadcastQueue queue : mBroadcastQueues) {
-            BroadcastRecord r = queue.getMatchingOrderedReceiver(receiver);
-            if (r != null) {
-                return r;
-            }
-        }
-        return null;
     }
 
     /**
@@ -1914,6 +1905,7 @@ public final class ActivityManagerService extends ActivityManagerNative
                 ServiceManager.addService("cpuinfo", new CpuBinder(this));
             }
             ServiceManager.addService("permission", new PermissionController(this));
+            ServiceManager.addService("processinfo", new ProcessInfoService(this));
 
             ApplicationInfo info = mContext.getPackageManager().getApplicationInfo(
                     "android", STOCK_PM_FLAGS);
@@ -2787,10 +2779,38 @@ public final class ActivityManagerService extends ActivityManagerNative
         if (!isolated) {
             app = getProcessRecordLocked(processName, info.uid, keepIfLarge);
             checkTime(startTime, "startProcess: after getProcessRecord");
+
+            if ((intentFlags & Intent.FLAG_FROM_BACKGROUND) != 0) {
+                // If we are in the background, then check to see if this process
+                // is bad.  If so, we will just silently fail.
+                if (mBadProcesses.get(info.processName, info.uid) != null) {
+                    if (DEBUG_PROCESSES) Slog.v(TAG, "Bad process: " + info.uid
+                            + "/" + info.processName);
+                    return null;
+                }
+            } else {
+                // When the user is explicitly starting a process, then clear its
+                // crash count so that we won't make it bad until they see at
+                // least one crash dialog again, and make the process good again
+                // if it had been bad.
+                if (DEBUG_PROCESSES) Slog.v(TAG, "Clearing bad process: " + info.uid
+                        + "/" + info.processName);
+                mProcessCrashTimes.remove(info.processName, info.uid);
+                if (mBadProcesses.get(info.processName, info.uid) != null) {
+                    EventLog.writeEvent(EventLogTags.AM_PROC_GOOD,
+                            UserHandle.getUserId(info.uid), info.uid,
+                            info.processName);
+                    mBadProcesses.remove(info.processName, info.uid);
+                    if (app != null) {
+                        app.bad = false;
+                    }
+                }
+            }
         } else {
             // If this is an isolated process, it can't re-use an existing process.
             app = null;
         }
+
         // We don't have to do anything more if:
         // (1) There is an existing application record; and
         // (2) The caller doesn't think it is dead, OR there is no thread
@@ -2823,35 +2843,6 @@ public final class ActivityManagerService extends ActivityManagerNative
 
         String hostingNameStr = hostingName != null
                 ? hostingName.flattenToShortString() : null;
-
-        if (!isolated) {
-            if ((intentFlags&Intent.FLAG_FROM_BACKGROUND) != 0) {
-                // If we are in the background, then check to see if this process
-                // is bad.  If so, we will just silently fail.
-                if (mBadProcesses.get(info.processName, info.uid) != null) {
-                    if (DEBUG_PROCESSES) Slog.v(TAG, "Bad process: " + info.uid
-                            + "/" + info.processName);
-                    return null;
-                }
-            } else {
-                // When the user is explicitly starting a process, then clear its
-                // crash count so that we won't make it bad until they see at
-                // least one crash dialog again, and make the process good again
-                // if it had been bad.
-                if (DEBUG_PROCESSES) Slog.v(TAG, "Clearing bad process: " + info.uid
-                        + "/" + info.processName);
-                mProcessCrashTimes.remove(info.processName, info.uid);
-                if (mBadProcesses.get(info.processName, info.uid) != null) {
-                    EventLog.writeEvent(EventLogTags.AM_PROC_GOOD,
-                            UserHandle.getUserId(info.uid), info.uid,
-                            info.processName);
-                    mBadProcesses.remove(info.processName, info.uid);
-                    if (app != null) {
-                        app.bad = false;
-                    }
-                }
-            }
-        }
 
         if (app == null) {
             checkTime(startTime, "startProcess: creating new process record");
@@ -4584,17 +4575,13 @@ public final class ActivityManagerService extends ActivityManagerNative
             finishInstrumentationLocked(app, Activity.RESULT_CANCELED, info);
         }
 
-        if (!restarting) {
-            if (!mStackSupervisor.resumeTopActivitiesLocked()) {
-                // If there was nothing to resume, and we are not already
-                // restarting this process, but there is a visible activity that
-                // is hosted by the process...  then make sure all visible
-                // activities are running, taking care of restarting this
-                // process.
-                if (hasVisibleActivities) {
-                    mStackSupervisor.ensureActivitiesVisibleLocked(null, 0);
-                }
-            }
+        if (!restarting && hasVisibleActivities && !mStackSupervisor.resumeTopActivitiesLocked()) {
+            // If there was nothing to resume, and we are not already
+            // restarting this process, but there is a visible activity that
+            // is hosted by the process...  then make sure all visible
+            // activities are running, taking care of restarting this
+            // process.
+            mStackSupervisor.ensureActivitiesVisibleLocked(null, 0);
         }
     }
 
@@ -5810,16 +5797,19 @@ public final class ActivityManagerService extends ActivityManagerNative
             if (app.isolated) {
                 mBatteryStatsService.removeIsolatedUid(app.uid, app.info.uid);
             }
-            app.kill(reason, true);
-            handleAppDiedLocked(app, true, allowRestart);
-            removeLruProcessLocked(app);
-
+            boolean willRestart = false;
             if (app.persistent && !app.isolated) {
                 if (!callerWillRestart) {
-                    addAppLocked(app.info, false, null /* ABI override */);
+                    willRestart = true;
                 } else {
                     needRestart = true;
                 }
+            }
+            app.kill(reason, true);
+            handleAppDiedLocked(app, willRestart, allowRestart);
+            if (willRestart) {
+                removeLruProcessLocked(app);
+                addAppLocked(app.info, false, null /* ABI override */);
             }
         } else {
             mRemovedProcesses.add(app);
@@ -5859,6 +5849,7 @@ public final class ActivityManagerService extends ActivityManagerNative
             // Take care of any services that are waiting for the process.
             mServices.processStartTimedOutLocked(app);
             app.kill("start timeout", true);
+            removeLruProcessLocked(app);
             if (mBackupTarget != null && mBackupTarget.app.pid == pid) {
                 Slog.w(TAG, "Unattached app died before backup, skipping");
                 try {
@@ -6810,7 +6801,46 @@ public final class ActivityManagerService extends ActivityManagerNative
             }
         }
     }
-    
+
+    // =========================================================
+    // PROCESS INFO
+    // =========================================================
+
+    static class ProcessInfoService extends IProcessInfoService.Stub {
+        final ActivityManagerService mActivityManagerService;
+        ProcessInfoService(ActivityManagerService activityManagerService) {
+            mActivityManagerService = activityManagerService;
+        }
+
+        @Override
+        public void getProcessStatesFromPids(/*in*/ int[] pids, /*out*/ int[] states) {
+            mActivityManagerService.getProcessStatesForPIDs(/*in*/ pids, /*out*/ states);
+        }
+    }
+
+    /**
+     * For each PID in the given input array, write the current process state
+     * for that process into the output array, or -1 to indicate that no
+     * process with the given PID exists.
+     */
+    public void getProcessStatesForPIDs(/*in*/ int[] pids, /*out*/ int[] states) {
+        if (pids == null) {
+            throw new NullPointerException("pids");
+        } else if (states == null) {
+            throw new NullPointerException("states");
+        } else if (pids.length != states.length) {
+            throw new IllegalArgumentException("input and output arrays have different lengths!");
+        }
+
+        synchronized (mPidsSelfLocked) {
+            for (int i = 0; i < pids.length; i++) {
+                ProcessRecord pr = mPidsSelfLocked.get(pids[i]);
+                states[i] = (pr == null) ? ActivityManager.PROCESS_STATE_NONEXISTENT :
+                        pr.curProcState;
+            }
+        }
+    }
+
     // =========================================================
     // PERMISSIONS
     // =========================================================
@@ -9438,11 +9468,13 @@ public final class ActivityManagerService extends ActivityManagerNative
                             if (DEBUG_PROVIDER) {
                                 Slog.d(TAG, "Installing in existing process " + proc);
                             }
-                            checkTime(startTime, "getContentProviderImpl: scheduling install");
-                            proc.pubProviders.put(cpi.name, cpr);
-                            try {
-                                proc.thread.scheduleInstallProvider(cpi);
-                            } catch (RemoteException e) {
+                            if (!proc.pubProviders.containsKey(cpi.name)) {
+                                checkTime(startTime, "getContentProviderImpl: scheduling install");
+                                proc.pubProviders.put(cpi.name, cpr);
+                                try {
+                                    proc.thread.scheduleInstallProvider(cpi);
+                                } catch (RemoteException e) {
+                                }
                             }
                         } else {
                             checkTime(startTime, "getContentProviderImpl: before start process");
@@ -10013,10 +10045,9 @@ public final class ActivityManagerService extends ActivityManagerNative
             } finally {
                 // Ensure that whatever happens, we clean up the identity state
                 sCallerIdentity.remove();
+                // Ensure we're done with the provider.
+                removeContentProviderExternalUnchecked(name, null, userId);
             }
-
-            // We've got the fd now, so we're done with the provider.
-            removeContentProviderExternalUnchecked(name, null, userId);
         } else {
             Slog.d(TAG, "Failed to get provider for authority '" + name + "'");
         }
@@ -15579,30 +15610,6 @@ public final class ActivityManagerService extends ActivityManagerNative
     // BROADCASTS
     // =========================================================
 
-    private final List getStickiesLocked(String action, IntentFilter filter,
-            List cur, int userId) {
-        final ContentResolver resolver = mContext.getContentResolver();
-        ArrayMap<String, ArrayList<Intent>> stickies = mStickyBroadcasts.get(userId);
-        if (stickies == null) {
-            return cur;
-        }
-        final ArrayList<Intent> list = stickies.get(action);
-        if (list == null) {
-            return cur;
-        }
-        int N = list.size();
-        for (int i=0; i<N; i++) {
-            Intent intent = list.get(i);
-            if (filter.match(resolver, intent, true, TAG) >= 0) {
-                if (cur == null) {
-                    cur = new ArrayList<Intent>();
-                }
-                cur.add(intent);
-            }
-        }
-        return cur;
-    }
-
     boolean isPendingBroadcastProcessLocked(int pid) {
         return mFgBroadcastQueue.isPendingBroadcastProcessLocked(pid)
                 || mBgBroadcastQueue.isPendingBroadcastProcessLocked(pid);
@@ -15627,10 +15634,11 @@ public final class ActivityManagerService extends ActivityManagerNative
     public Intent registerReceiver(IApplicationThread caller, String callerPackage,
             IIntentReceiver receiver, IntentFilter filter, String permission, int userId) {
         enforceNotIsolatedCaller("registerReceiver");
+        ArrayList<Intent> stickyIntents = null;
+        ProcessRecord callerApp = null;
         int callingUid;
         int callingPid;
         synchronized(this) {
-            ProcessRecord callerApp = null;
             if (caller != null) {
                 callerApp = getRecordForAppLocked(caller);
                 if (callerApp == null) {
@@ -15653,39 +15661,66 @@ public final class ActivityManagerService extends ActivityManagerNative
                 callingPid = Binder.getCallingPid();
             }
 
-            userId = this.handleIncomingUser(callingPid, callingUid, userId,
+            userId = handleIncomingUser(callingPid, callingUid, userId,
                     true, ALLOW_FULL_ONLY, "registerReceiver", callerPackage);
 
-            List allSticky = null;
+            Iterator<String> actions = filter.actionsIterator();
+            if (actions == null) {
+                ArrayList<String> noAction = new ArrayList<String>(1);
+                noAction.add(null);
+                actions = noAction.iterator();
+            }
 
-            // Look for any matching sticky broadcasts...
-            Iterator actions = filter.actionsIterator();
-            if (actions != null) {
-                while (actions.hasNext()) {
-                    String action = (String)actions.next();
-                    allSticky = getStickiesLocked(action, filter, allSticky,
-                            UserHandle.USER_ALL);
-                    allSticky = getStickiesLocked(action, filter, allSticky,
-                            UserHandle.getUserId(callingUid));
+            // Collect stickies of users
+            int[] userIds = { UserHandle.USER_ALL, UserHandle.getUserId(callingUid) };
+            while (actions.hasNext()) {
+                String action = actions.next();
+                for (int id : userIds) {
+                    ArrayMap<String, ArrayList<Intent>> stickies = mStickyBroadcasts.get(id);
+                    if (stickies != null) {
+                        ArrayList<Intent> intents = stickies.get(action);
+                        if (intents != null) {
+                            if (stickyIntents == null) {
+                                stickyIntents = new ArrayList<Intent>();
+                            }
+                            stickyIntents.addAll(intents);
+                        }
+                    }
                 }
-            } else {
-                allSticky = getStickiesLocked(null, filter, allSticky,
-                        UserHandle.USER_ALL);
-                allSticky = getStickiesLocked(null, filter, allSticky,
-                        UserHandle.getUserId(callingUid));
             }
+        }
 
-            // The first sticky in the list is returned directly back to
-            // the client.
-            Intent sticky = allSticky != null ? (Intent)allSticky.get(0) : null;
-
-            if (DEBUG_BROADCAST) Slog.v(TAG, "Register receiver " + filter
-                    + ": " + sticky);
-
-            if (receiver == null) {
-                return sticky;
+        ArrayList<Intent> allSticky = null;
+        if (stickyIntents != null) {
+            final ContentResolver resolver = mContext.getContentResolver();
+            // Look for any matching sticky broadcasts...
+            for (int i = 0, N = stickyIntents.size(); i < N; i++) {
+                Intent intent = stickyIntents.get(i);
+                // If intent has scheme "content", it will need to acccess
+                // provider that needs to lock mProviderMap in ActivityThread
+                // and also it may need to wait application response, so we
+                // cannot lock ActivityManagerService here.
+                if (filter.match(resolver, intent, true, TAG) >= 0) {
+                    if (allSticky == null) {
+                        allSticky = new ArrayList<Intent>();
+                    }
+                    allSticky.add(intent);
+                }
             }
+        }
 
+        // The first sticky in the list is returned directly back to the client.
+        Intent sticky = allSticky != null ? allSticky.get(0) : null;
+        if (DEBUG_BROADCAST) Slog.v(TAG, "Register receiver " + filter + ": " + sticky);
+        if (receiver == null) {
+            return sticky;
+        }
+
+        synchronized (this) {
+            if (callerApp != null && callerApp.pid == 0) {
+                // Caller already died
+                return null;
+            }
             ReceiverList rl
                 = (ReceiverList)mRegisteredReceivers.get(receiver.asBinder());
             if (rl == null) {
@@ -15755,11 +15790,11 @@ public final class ActivityManagerService extends ActivityManagerNative
             synchronized(this) {
                 ReceiverList rl = mRegisteredReceivers.get(receiver.asBinder());
                 if (rl != null) {
-                    if (rl.curBroadcast != null) {
-                        BroadcastRecord r = rl.curBroadcast;
-                        final boolean doNext = finishReceiverLocked(
-                                receiver.asBinder(), r.resultCode, r.resultData,
-                                r.resultExtras, r.resultAbort);
+                    final BroadcastRecord r = rl.curBroadcast;
+                    if (r != null && r == r.queue.getMatchingOrderedReceiver(r)) {
+                        final boolean doNext = r.queue.finishReceiverLocked(
+                                r, r.resultCode, r.resultData, r.resultExtras,
+                                r.resultAbort, false);
                         if (doNext) {
                             doTrim = true;
                             r.queue.processNextBroadcast(false);
@@ -16450,17 +16485,6 @@ public final class ActivityManagerService extends ActivityManagerNative
         }
     }
 
-    private final boolean finishReceiverLocked(IBinder receiver, int resultCode,
-            String resultData, Bundle resultExtras, boolean resultAbort) {
-        final BroadcastRecord r = broadcastRecordForReceiverLocked(receiver);
-        if (r == null) {
-            Slog.w(TAG, "finishReceiver called but not found on queue");
-            return false;
-        }
-
-        return r.queue.finishReceiverLocked(r, resultCode, resultData, resultExtras, resultAbort, false);
-    }
-
     void backgroundServicesFinishedLocked(int userId) {
         for (BroadcastQueue queue : mBroadcastQueues) {
             queue.backgroundServicesFinishedLocked(userId);
@@ -16468,7 +16492,7 @@ public final class ActivityManagerService extends ActivityManagerNative
     }
 
     public void finishReceiver(IBinder who, int resultCode, String resultData,
-            Bundle resultExtras, boolean resultAbort) {
+            Bundle resultExtras, boolean resultAbort, int flags) {
         if (DEBUG_BROADCAST) Slog.v(TAG, "Finish receiver: " + who);
 
         // Refuse possible leaked file descriptors
@@ -16482,7 +16506,9 @@ public final class ActivityManagerService extends ActivityManagerNative
             BroadcastRecord r;
 
             synchronized(this) {
-                r = broadcastRecordForReceiverLocked(who);
+                BroadcastQueue queue = (flags & Intent.FLAG_RECEIVER_FOREGROUND) != 0
+                        ? mFgBroadcastQueue : mBgBroadcastQueue;
+                r = queue.getMatchingOrderedReceiver(who);
                 if (r != null) {
                     doNext = r.queue.finishReceiverLocked(r, resultCode,
                         resultData, resultExtras, resultAbort, true);
@@ -17680,8 +17706,12 @@ public final class ActivityManagerService extends ActivityManagerNative
         mFullPssPending = true;
         mPendingPssProcesses.ensureCapacity(mLruProcesses.size());
         mPendingPssProcesses.clear();
-        for (int i=mLruProcesses.size()-1; i>=0; i--) {
+        for (int i = mLruProcesses.size() - 1; i >= 0; i--) {
             ProcessRecord app = mLruProcesses.get(i);
+            if (app.thread == null
+                    || app.curProcState == ActivityManager.PROCESS_STATE_NONEXISTENT) {
+                continue;
+            }
             if (memLowered || now > (app.lastStateTime+ProcessList.PSS_ALL_INTERVAL)) {
                 app.pssProcState = app.setProcState;
                 app.nextPssTime = ProcessList.computeNextPssTime(app.curProcState, true,
@@ -18015,8 +18045,8 @@ public final class ActivityManagerService extends ActivityManagerNative
                 }
             }
         }
-        if (app.setProcState < 0 || ProcessList.procStatesDifferForMem(app.curProcState,
-                app.setProcState)) {
+        if (app.setProcState == ActivityManager.PROCESS_STATE_NONEXISTENT
+                || ProcessList.procStatesDifferForMem(app.curProcState, app.setProcState)) {
             if (false && mTestPssMode && app.setProcState >= 0 && app.lastStateTime <= (now-200)) {
                 // Experimental code to more aggressively collect pss while
                 // running test...  the problem is that this tends to collect

@@ -19,8 +19,11 @@ package com.android.systemui.statusbar;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.TimeInterpolator;
+import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.ActivityManager.RunningAppProcessInfo;
 import android.app.ActivityManagerNative;
+import android.app.IActivityManager;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -29,15 +32,18 @@ import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.content.ServiceConnection;
 import android.database.ContentObserver;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
@@ -46,7 +52,9 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Message;
+import android.os.Messenger;
 import android.os.PowerManager;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.UserHandle;
@@ -77,16 +85,19 @@ import android.view.WindowManagerGlobal;
 import android.view.accessibility.AccessibilityManager;
 import android.view.animation.AnimationUtils;
 import android.widget.DateTimeView;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RemoteViews;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.android.internal.statusbar.IStatusBarService;
 import com.android.internal.statusbar.StatusBarIcon;
 import com.android.internal.statusbar.StatusBarIconList;
 import com.android.internal.util.NotificationColorUtil;
 import com.android.internal.widget.LockPatternUtils;
+import com.android.internal.util.slim.DeviceUtils;
 import com.android.systemui.R;
 import com.android.systemui.RecentsComponent;
 import com.android.systemui.SearchPanelView;
@@ -128,8 +139,10 @@ public abstract class BaseStatusBar extends SystemUI implements
     protected static final int MSG_HIDE_HEADS_UP = 1029;
     protected static final int MSG_ESCALATE_HEADS_UP = 1030;
     protected static final int MSG_DECAY_HEADS_UP = 1031;
+    protected static final int MSG_TOGGLE_LAST_APP = 1032;
+    protected static final int MSG_TOGGLE_KILL_APP = 1033;
+    protected static final int MSG_TOGGLE_SCREENSHOT = 1034;
 
-    protected static final boolean ENABLE_HEADS_UP = true;
     // scores above this threshold should be displayed in heads up mode.
     protected static final int INTERRUPTION_THRESHOLD = 10;
     protected static final String SETTING_HEADS_UP_TICKER = "ticker_gets_heads_up";
@@ -186,9 +199,11 @@ public abstract class BaseStatusBar extends SystemUI implements
     private Locale mLocale;
     private float mFontScale;
 
-    protected boolean mUseHeadsUp = false;
-    protected boolean mHeadsUpTicker = false;
     protected boolean mDisableNotificationAlerts = false;
+
+    private int mHeadsUpSnoozeTime;
+    private long mHeadsUpSnoozeStartTime;
+    protected String mHeadsUpPackageName;
 
     protected DevicePolicyManager mDevicePolicyManager;
     protected IDreamManager mDreamManager;
@@ -214,6 +229,8 @@ public abstract class BaseStatusBar extends SystemUI implements
 
     protected WindowManager mWindowManager;
     protected IWindowManager mWindowManagerService;
+
+    private NotificationManager mNoMan;
 
     protected abstract void refreshLayout(int layoutDirection);
 
@@ -385,9 +402,7 @@ public abstract class BaseStatusBar extends SystemUI implements
                 updateLockscreenNotificationSetting();
                 updateNotifications();
             } else if (BANNER_ACTION_CANCEL.equals(action) || BANNER_ACTION_SETUP.equals(action)) {
-                NotificationManager noMan = (NotificationManager)
-                        mContext.getSystemService(Context.NOTIFICATION_SERVICE);
-                noMan.cancel(HIDDEN_NOTIFICATION_ID);
+                mNoMan.cancel(HIDDEN_NOTIFICATION_ID);
 
                 Settings.Secure.putInt(mContext.getContentResolver(),
                         Settings.Secure.SHOW_NOTE_ABOUT_NOTIFICATION_HIDING, 0);
@@ -496,6 +511,9 @@ public abstract class BaseStatusBar extends SystemUI implements
     public void start() {
         mWindowManager = (WindowManager)mContext.getSystemService(Context.WINDOW_SERVICE);
         mWindowManagerService = WindowManagerGlobal.getWindowManagerService();
+
+        mNoMan = (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
+
         mDisplay = mWindowManager.getDefaultDisplay();
         mDevicePolicyManager = (DevicePolicyManager)mContext.getSystemService(
                 Context.DEVICE_POLICY_SERVICE);
@@ -656,9 +674,7 @@ public abstract class BaseStatusBar extends SystemUI implements
                             mContext.getString(R.string.hidden_notifications_setup),
                             setupIntent);
 
-            NotificationManager noMan =
-                    (NotificationManager) mContext.getSystemService(Context.NOTIFICATION_SERVICE);
-            noMan.notify(HIDDEN_NOTIFICATION_ID, note.build());
+            mNoMan.notify(HIDDEN_NOTIFICATION_ID, note.build());
         }
     }
 
@@ -868,6 +884,8 @@ public abstract class BaseStatusBar extends SystemUI implements
         final View settingsButton = guts.findViewById(R.id.notification_inspect_item);
         final View appSettingsButton
                 = guts.findViewById(R.id.notification_inspect_app_provided_settings);
+        final View headsUpButton
+                = guts.findViewById(R.id.notification_inspect_heads_up);
         if (appUid >= 0) {
             final int appUidF = appUid;
             settingsButton.setOnClickListener(new View.OnClickListener() {
@@ -901,11 +919,62 @@ public abstract class BaseStatusBar extends SystemUI implements
             } else {
                 appSettingsButton.setVisibility(View.GONE);
             }
+
+            if (isThisASystemPackage(pkg, pmUser)) {
+                headsUpButton.setVisibility(View.GONE);
+            } else {
+                boolean isHeadsUpEnabled = mNoMan.getHeadsUpNotificationsEnabledForPackage(
+                        pkg, appUidF) != Notification.HEADS_UP_NEVER;
+                headsUpButton.setAlpha(isHeadsUpEnabled ? 1f : 0.5f);
+                setHeadsUpButtonContentDescription((View) headsUpButton, isHeadsUpEnabled);
+                headsUpButton.setVisibility(View.VISIBLE);
+                headsUpButton.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        int headsUp =
+                                mNoMan.getHeadsUpNotificationsEnabledForPackage(pkg, appUidF);
+
+                        if (headsUp != Notification.HEADS_UP_NEVER) {
+                            headsUp = Notification.HEADS_UP_NEVER;
+                            ((ImageButton) v).setAlpha(0.5f);
+                        } else {
+                            headsUp = Notification.HEADS_UP_ALLOWED;
+                            ((ImageButton) v).setAlpha(1f);
+                        }
+                        setHeadsUpButtonContentDescription(
+                                v, headsUp != Notification.HEADS_UP_NEVER);
+                        mNoMan.setHeadsUpNotificationsEnabledForPackage(pkg, appUidF, headsUp);
+                    }
+                });
+            }
         } else {
             settingsButton.setVisibility(View.GONE);
             appSettingsButton.setVisibility(View.GONE);
+            headsUpButton.setVisibility(View.GONE);
         }
 
+    }
+
+    private void setHeadsUpButtonContentDescription(View v, boolean enabled) {
+        if (v == null) return;
+        if (enabled) {
+            v.setContentDescription(mContext.getString(
+                    R.string.notification_inspect_heads_up_title_disabled));
+        } else {
+            v.setContentDescription(mContext.getString(
+                    R.string.notification_inspect_heads_up_title_enabled));
+        }
+    }
+
+    private boolean isThisASystemPackage(String packageName, PackageManager pm) {
+        try {
+            PackageInfo packageInfo = pm.getPackageInfo(packageName,
+                    PackageManager.GET_SIGNATURES);
+            PackageInfo sys = pm.getPackageInfo("android", PackageManager.GET_SIGNATURES);
+            return (packageInfo != null && packageInfo.signatures != null &&
+                    sys.signatures[0].equals(packageInfo.signatures[0]));
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
     }
 
     protected SwipeHelper.LongPressListener getNotificationLongClicker() {
@@ -979,7 +1048,7 @@ public abstract class BaseStatusBar extends SystemUI implements
         }
     }
 
-    public void onHeadsUpDismissed() {
+    public void onHeadsUpDismissed(boolean direction) {
     }
 
     @Override
@@ -1046,6 +1115,27 @@ public abstract class BaseStatusBar extends SystemUI implements
         mHandler.sendEmptyMessage(msg);
     }
 
+    @Override
+    public void toggleLastApp() {
+        int msg = MSG_TOGGLE_LAST_APP;
+        mHandler.removeMessages(msg);
+        mHandler.sendEmptyMessage(msg);
+    }
+
+    @Override
+    public void toggleKillApp() {
+        int msg = MSG_TOGGLE_KILL_APP;
+        mHandler.removeMessages(msg);
+        mHandler.sendEmptyMessage(msg);
+    }
+
+    @Override
+    public void toggleScreenshot() {
+        int msg = MSG_TOGGLE_SCREENSHOT;
+        mHandler.removeMessages(msg);
+        mHandler.sendEmptyMessage(msg);
+    }
+
     protected abstract WindowManager.LayoutParams getSearchLayoutParams(
             LayoutParams layoutParams);
 
@@ -1061,6 +1151,11 @@ public abstract class BaseStatusBar extends SystemUI implements
         LinearLayout tmpRoot = new LinearLayout(mContext);
         mSearchPanelView = (SearchPanelView) LayoutInflater.from(mContext).inflate(
                  R.layout.status_bar_search_panel, tmpRoot, false);
+
+         boolean navbarCanMove = Settings.System.getIntForUser(mContext.getContentResolver(),
+                   Settings.System.NAVIGATION_BAR_CAN_MOVE,
+                   DeviceUtils.isPhone(mContext) ? 1 : 0, UserHandle.USER_CURRENT) == 1;
+
         mSearchPanelView.setOnTouchListener(
                  new TouchOutsideListener(MSG_CLOSE_SEARCH_PANEL, mSearchPanelView));
         mSearchPanelView.setVisibility(View.GONE);
@@ -1256,6 +1351,18 @@ public abstract class BaseStatusBar extends SystemUI implements
                  if (mSearchPanelView != null && mSearchPanelView.isShowing()) {
                      mSearchPanelView.show(false, true);
                  }
+                 break;
+             case MSG_TOGGLE_LAST_APP:
+                 if (DEBUG) Slog.d(TAG, "toggle last app");
+                 getLastApp();
+                 break;
+             case MSG_TOGGLE_KILL_APP:
+                 if (DEBUG) Slog.d(TAG, "toggle kill app");
+                 mHandler.post(mKillTask);
+                 break;
+             case MSG_TOGGLE_SCREENSHOT:
+                 if (DEBUG) Slog.d(TAG, "toggle screenshot");
+                 takeScreenshot();
                  break;
             }
         }
@@ -1788,7 +1895,16 @@ public abstract class BaseStatusBar extends SystemUI implements
     }
 
     private boolean shouldShowOnKeyguard(StatusBarNotification sbn) {
-        return mShowLockscreenNotifications && !mNotificationData.isAmbient(sbn.getKey());
+        final int showOnKeyguard = mNoMan.getShowNotificationForPackageOnKeyguard(
+                sbn.getPackageName(), sbn.getUid());
+        boolean isKeyguardAllowedForApp =
+                (showOnKeyguard & Notification.SHOW_ALL_NOTI_ON_KEYGUARD) != 0;
+        if (isKeyguardAllowedForApp && sbn.isOngoing()) {
+            isKeyguardAllowedForApp =
+                    (showOnKeyguard & Notification.SHOW_NO_ONGOING_NOTI_ON_KEYGUARD) == 0;
+        }
+        return mShowLockscreenNotifications && !mNotificationData.isAmbient(sbn.getKey())
+                && isKeyguardAllowedForApp;
     }
 
     protected void setZenMode(int mode) {
@@ -2076,6 +2192,36 @@ public abstract class BaseStatusBar extends SystemUI implements
                 || (newNotification.flags & Notification.FLAG_ONLY_ALERT_ONCE) == 0;
     }
 
+    public void snoozeHeadsUp() {
+        scheduleHeadsUpClose();
+        mHeadsUpSnoozeStartTime = System.currentTimeMillis();
+        Toast.makeText(mContext,
+                mContext.getString(R.string.heads_up_snooze_message,
+                mHeadsUpSnoozeTime / 60 / 1000), Toast.LENGTH_LONG).show();
+    }
+
+    protected boolean isHeadsUpInSnooze() {
+        return (mHeadsUpSnoozeStartTime + mHeadsUpSnoozeTime - System.currentTimeMillis()) > 0;
+    }
+
+    protected void setHeadsUpSnoozeTime(int snoozeTime) {
+        mHeadsUpSnoozeTime = snoozeTime;
+    }
+
+    protected void resetHeadsUpSnoozeTimer() {
+        mHeadsUpSnoozeStartTime = 0;
+    }
+
+    @Override // CommandQueue
+    public void hideHeadsUpCandidate(String packageName) {
+        // Activity stack notifies us that probably the the current heads up
+        // is from the package which is opening now. If this is the case hide
+        // our heads up immediatelly to do not disturb the workflow.
+        if (mHeadsUpPackageName != null && mHeadsUpPackageName.equals(packageName)) {
+            scheduleHeadsUpClose();
+        }
+    }
+
     protected boolean shouldInterrupt(StatusBarNotification sbn) {
         if (mNotificationData.shouldFilterOut(sbn)) {
             if (DEBUG) {
@@ -2089,6 +2235,10 @@ public abstract class BaseStatusBar extends SystemUI implements
         }
 
         Notification notification = sbn.getNotification();
+        // we are snoozing
+        if (isHeadsUpInSnooze()) {
+            return false;
+        }
         // some predicates to make the boolean logic legible
         boolean isNoisy = (notification.defaults & Notification.DEFAULT_SOUND) != 0
                 || (notification.defaults & Notification.DEFAULT_VIBRATE) != 0
@@ -2096,19 +2246,44 @@ public abstract class BaseStatusBar extends SystemUI implements
                 || notification.vibrate != null;
         boolean isHighPriority = sbn.getScore() >= INTERRUPTION_THRESHOLD;
         boolean isFullscreen = notification.fullScreenIntent != null;
-        boolean hasTicker = mHeadsUpTicker && !TextUtils.isEmpty(notification.tickerText);
-        boolean isAllowed = notification.extras.getInt(Notification.EXTRA_AS_HEADS_UP,
-                Notification.HEADS_UP_ALLOWED) != Notification.HEADS_UP_NEVER;
+        int asHeadsUp = notification.extras.getInt(Notification.EXTRA_AS_HEADS_UP,
+                Notification.HEADS_UP_ALLOWED);
+        boolean isAllowed = asHeadsUp != Notification.HEADS_UP_NEVER;
         boolean accessibilityForcesLaunch = isFullscreen
                 && mAccessibilityManager.isTouchExplorationEnabled();
 
-        boolean interrupt = (isFullscreen || (isHighPriority && (isNoisy || hasTicker)))
+        boolean keyguardIsShowing = (mStatusBarKeyguardViewManager.isShowing()
+                                         || !mStatusBarKeyguardViewManager.isOccluded())
+                && mStatusBarKeyguardViewManager.isInputRestricted();
+
+        boolean interrupt = (isFullscreen || (isHighPriority && isNoisy)
+                || asHeadsUp == Notification.HEADS_UP_REQUESTED)
                 && isAllowed
                 && !accessibilityForcesLaunch
                 && mPowerManager.isScreenOn()
-                && (!mStatusBarKeyguardViewManager.isShowing()
-                        || mStatusBarKeyguardViewManager.isOccluded())
-                && !mStatusBarKeyguardViewManager.isInputRestricted();
+                && !keyguardIsShowing;
+
+        if (!interrupt) {
+            boolean isHeadsUpPackage = mNoMan.getHeadsUpNotificationsEnabledForPackage(
+                    sbn.getPackageName(), sbn.getUid()) != Notification.HEADS_UP_NEVER;
+
+            boolean isExpanded = false;
+            if (mStackScroller != null) {
+                isExpanded = mStackScroller.getIsExpanded();
+            }
+            // Possibly a heads up package set from the user.
+            interrupt = isHeadsUpPackage
+                    && !sbn.isOngoing()
+                    && mPowerManager.isScreenOn()
+                    && !accessibilityForcesLaunch
+                    && !isExpanded
+                    && !keyguardIsShowing;
+
+            if (interrupt) {
+                mHeadsUpPackageName = sbn.getPackageName();
+            }
+        }
+
         try {
             interrupt = interrupt && !mDreamManager.isDreaming();
         } catch (RemoteException e) {
@@ -2186,5 +2361,159 @@ public abstract class BaseStatusBar extends SystemUI implements
             return false;
         }
         return mStatusBarKeyguardViewManager.isSecure();
+    }
+
+    Runnable mKillTask = new Runnable() {
+        public void run() {
+            try {
+                final Intent intent = new Intent(Intent.ACTION_MAIN);
+                String defaultHomePackage = "com.android.launcher";
+                intent.addCategory(Intent.CATEGORY_HOME);
+                final ResolveInfo res = mContext.getPackageManager().resolveActivity(intent, 0);
+                if (res.activityInfo != null && !res.activityInfo.packageName.equals("android")) {
+                    defaultHomePackage = res.activityInfo.packageName;
+                }
+                boolean targetKilled = false;
+                IActivityManager am = ActivityManagerNative.getDefault();
+                List<RunningAppProcessInfo> apps = am.getRunningAppProcesses();
+                for (RunningAppProcessInfo appInfo : apps) {
+                    int uid = appInfo.uid;
+                    // Make sure it's a foreground user application (not system,
+                    // root, phone, etc.)
+                    if (uid >= Process.FIRST_APPLICATION_UID && uid <= Process.LAST_APPLICATION_UID
+                            && appInfo.importance == RunningAppProcessInfo.IMPORTANCE_FOREGROUND) {
+                        if (appInfo.pkgList != null && (appInfo.pkgList.length > 0)) {
+                            for (String pkg : appInfo.pkgList) {
+                                if (!pkg.equals("com.android.systemui")
+                                        && !pkg.equals(defaultHomePackage)) {
+                                    am.forceStopPackage(pkg, UserHandle.USER_CURRENT);
+                                    targetKilled = true;
+                                    break;
+                                }
+                            }
+                        } else {
+                            Process.killProcess(appInfo.pid);
+                            targetKilled = true;
+                        }
+                    }
+                    if (targetKilled) {
+                        Toast.makeText(mContext,
+                                R.string.app_killed_message, Toast.LENGTH_SHORT).show();
+                        break;
+                    }
+                }
+            } catch (RemoteException e) {}
+        }
+    };
+
+    final Runnable mScreenshotTimeout = new Runnable() {
+        @Override
+        public void run() {
+            synchronized (mScreenshotLock) {
+                if (mScreenshotConnection != null) {
+                    mContext.unbindService(mScreenshotConnection);
+                    mScreenshotConnection = null;
+                }
+            }
+        }
+    };
+
+    private final Object mScreenshotLock = new Object();
+    private ServiceConnection mScreenshotConnection = null;
+    private Handler mHDL = new Handler();
+
+    private void takeScreenshot() {
+        synchronized (mScreenshotLock) {
+            if (mScreenshotConnection != null) {
+                return;
+            }
+            ComponentName cn = new ComponentName("com.android.systemui",
+                    "com.android.systemui.screenshot.TakeScreenshotService");
+            Intent intent = new Intent();
+            intent.setComponent(cn);
+            ServiceConnection conn = new ServiceConnection() {
+                @Override
+                public void onServiceConnected(ComponentName name, IBinder service) {
+                    synchronized (mScreenshotLock) {
+                        if (mScreenshotConnection != this) {
+                            return;
+                        }
+                        Messenger messenger = new Messenger(service);
+                        Message msg = Message.obtain(null, 1);
+                        final ServiceConnection myConn = this;
+                        Handler h = new Handler(mHDL.getLooper()) {
+                            @Override
+                            public void handleMessage(Message msg) {
+                                synchronized (mScreenshotLock) {
+                                    if (mScreenshotConnection == myConn) {
+                                        mContext.unbindService(mScreenshotConnection);
+                                        mScreenshotConnection = null;
+                                        mHDL.removeCallbacks(mScreenshotTimeout);
+                                    }
+                                }
+                            }
+                        };
+                        msg.replyTo = new Messenger(h);
+                        msg.arg1 = msg.arg2 = 0;
+
+                        /*
+                         * remove for the time being if (mStatusBar != null &&
+                         * mStatusBar.isVisibleLw()) msg.arg1 = 1; if
+                         * (mNavigationBar != null &&
+                         * mNavigationBar.isVisibleLw()) msg.arg2 = 1;
+                         */
+
+                        /* wait for the dialog box to close */
+                        try {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException ie) {
+                        }
+
+                        /* take the screenshot */
+                        try {
+                            messenger.send(msg);
+                        } catch (RemoteException e) {
+                        }
+                    }
+                }
+
+                @Override
+                public void onServiceDisconnected(ComponentName name) {
+                }
+            };
+            if (mContext.bindService(intent, conn, mContext.BIND_AUTO_CREATE)) {
+                mScreenshotConnection = conn;
+                mHDL.postDelayed(mScreenshotTimeout, 10000);
+            }
+        }
+    }
+
+    private void getLastApp() {
+        int lastAppId = 0;
+        int looper = 1;
+        String packageName;
+        final Intent intent = new Intent(Intent.ACTION_MAIN);
+        final ActivityManager am = (ActivityManager) mContext
+                .getSystemService(Activity.ACTIVITY_SERVICE);
+        String defaultHomePackage = "com.android.launcher";
+        intent.addCategory(Intent.CATEGORY_HOME);
+        final ResolveInfo res = mContext.getPackageManager().resolveActivity(intent, 0);
+        if (res.activityInfo != null && !res.activityInfo.packageName.equals("android")) {
+            defaultHomePackage = res.activityInfo.packageName;
+        }
+        List <ActivityManager.RunningTaskInfo> tasks = am.getRunningTasks(5);
+        // lets get enough tasks to find something to switch to
+        // Note, we'll only get as many as the system currently has - up to 5
+        while ((lastAppId == 0) && (looper < tasks.size())) {
+            packageName = tasks.get(looper).topActivity.getPackageName();
+            if (!packageName.equals(defaultHomePackage)
+                    && !packageName.equals("com.android.systemui")) {
+                lastAppId = tasks.get(looper).id;
+            }
+            looper++;
+        }
+        if (lastAppId != 0) {
+            am.moveTaskToFront(lastAppId, am.MOVE_TASK_NO_USER_ACTION);
+        }
     }
 }

@@ -431,11 +431,6 @@
     <!-- Title of dialog to confirm rebooting. -->
     <string name="reboot_title">Reboot</string>
 
-    <!-- Reboot Confirmation Dialog.  When the user chooses to reboot the device, there will
-         be a confirmation dialog.  This is the message. -->
-    <string name="reboot_confirm" product="tablet">Your tablet will reboot.</string>
-    <string name="reboot_confirm" product="default">Your phone will reboot.</string>
-
     <!-- Recent Tasks dialog: title
      TODO: this should move to SystemUI.apk, but the code for the old
             recent dialog is still in the framework
@@ -459,9 +454,6 @@
 
     <!-- label for item that turns off power in phone options dialog -->
     <string name="global_action_power_off">Power off</string>
-
-    <!-- label for item that reboots the phone in phone options dialog -->
-    <string name="global_action_reboot">Reboot</string>
 
     <!-- label for item that generates a bug report in the phone options dialog -->
     <string name="global_action_bug_report">Bug report</string>
@@ -3999,8 +3991,6 @@
     <string name="usb_mtp_notification_title">Connected as a media device</string>
     <!-- USB_PREFERENCES: Notification for when the user connects the phone to a computer via USB in PTP mode.  This is the title -->
     <string name="usb_ptp_notification_title">Connected as a camera</string>
-    <!-- USB_PREFERENCES: Notification for when the user connects the phone to a computer via USB in CHARGING mode.  This is the title -->
-    <string name="usb_charging_notification_title">Connected in charging mode</string>
     <!-- USB_PREFERENCES: Notification for when the user connects the phone to a computer via USB in mass storage mode (for installer CD image).  This is the title -->
     <string name="usb_cd_installer_notification_title">Connected as an installer</string>
     <!-- USB_PREFERENCES: Notification for when a USB accessory is attached.  This is the title -->
@@ -4314,8 +4304,6 @@
     <string name="progress_unmounting" product="nosdcard">Unmounting USB storage\u2026</string>
     <!-- Text for progress dialog while unmounting SD card [CHAR LIMIT=NONE] -->
     <string name="progress_unmounting" product="default">Unmounting SD card\u2026</string>
-    <!-- Text for progress dialog while formatting SD card [CHAR LIMIT=NONE] -->
-    <string name="progress_nomediapresent" product="default">No removable media present\u2026</string>
     <!-- Text for progress dialog while erasing USB storage volume [CHAR LIMIT=NONE] -->
     <string name="progress_erasing" product="nosdcard">Erasing USB storage\u2026</string>
     <!-- Text for progress dialog while erasing SD card [CHAR LIMIT=NONE] -->
@@ -5119,7 +5107,7 @@
     <string name="day_of_week_label_typeface">sans-serif</string>
 
     <!-- Notify use that they are in Lock-to-app -->
-    <string name="lock_to_app_toast">To unpin this screen, touch and hold Back and Overview at the same time.</string>
+    <string name="lock_to_app_toast">To unpin this screen, touch and hold the two 3-dot menu buttons at the same time.</string>
     <!-- Notify use that they are in Lock-to-app in accessibility mode -->
     <string name="lock_to_app_toast_accessible">To unpin this screen, touch and hold Overview.</string>
     <!-- Notify user that they are locked in lock-to-app mode -->
@@ -5205,15 +5193,4 @@
     <string name="China_Mobile">China Mobile</string>
     <string name="China_Unicom">China Unicom</string>
     <string name="China_Telecom">China Telecom</string>
-
-    <!-- Text of the checkbox for the permission confirmation dialog to remember the user's choice. [CHAR LIMIT=40] -->
-    <string name="permission_remember_choice">Remember</string>
-    <string name="permission">Permission</string>
-
-    <!-- Default wi-fi hotspot ssid -->
-    <string name="def_wifi_wifihotspot_ssid" translatable="false"></string>
-    <!-- Default wi-fi hotspot pass -->
-    <string name="def_wifi_wifihotspot_pass" translatable="false"></string>
-    <!-- Default wi-fi direct name -->
-    <string name="def_wifi_direct_name" translatable="false"></string>
 </resources>

@@ -156,6 +156,8 @@ LOCAL_SRC_FILES += \
 	core/java/android/hardware/IConsumerIrService.aidl \
 	core/java/android/hardware/IProCameraUser.aidl \
 	core/java/android/hardware/IProCameraCallbacks.aidl \
+	core/java/android/hardware/ITorchService.aidl \
+	core/java/android/hardware/ITorchCallback.aidl \
 	core/java/android/hardware/camera2/ICameraDeviceUser.aidl \
 	core/java/android/hardware/camera2/ICameraDeviceCallbacks.aidl \
 	core/java/android/hardware/ISerialManager.aidl \
@@ -208,6 +210,7 @@ LOCAL_SRC_FILES += \
 	core/java/android/os/INetworkActivityListener.aidl \
 	core/java/android/os/INetworkManagementService.aidl \
 	core/java/android/os/IPermissionController.aidl \
+	core/java/android/os/IProcessInfoService.aidl \
 	core/java/android/os/IPowerManager.aidl \
 	core/java/android/os/IRemoteCallback.aidl \
 	core/java/android/os/ISchedulingPolicyService.aidl \
