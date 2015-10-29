@@ -495,8 +495,7 @@ public class NavigationBarView extends LinearLayout {
                 v.setImageDrawable(d);
             }
         }
-        v.setRippleColor(mRippleColor);
-        return v;
+      return v;
     }
 
     private KeyButtonView generateMenuKey(boolean landscape, int keyId) {
@@ -533,9 +532,7 @@ public class NavigationBarView extends LinearLayout {
         } else {
             v.setImageDrawable(d);
         }
-        v.setRippleColor(mRippleColor);
-
-        return v;
+      return v;
     }
 
     private int[] getAppIconPadding() {

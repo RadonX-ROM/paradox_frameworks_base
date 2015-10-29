@@ -452,9 +452,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                     Settings.System.STATUS_BAR_BATTERY_STYLE),
                     false, this, UserHandle.USER_ALL);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                    Settings.System.SU_INDICATOR),
-                    false, this, UserHandle.USER_ALL);
-            resolver.registerContentObserver(Settings.System.getUriFor(
                     Settings.System.NAVIGATION_BAR_BUTTON_TINT),
                     false, this, UserHandle.USER_ALL);
             resolver.registerContentObserver(Settings.System.getUriFor(
@@ -495,10 +492,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
                 mBatteryView.updateBatteryIconSettings();
                 mHeader.updateBatteryIconSettings();
                 mKeyguardStatusBar.updateBatteryIconSettings();
-            } else if (uri.equals(Settings.System.getUriFor(
-                    Settings.System.SU_INDICATOR))) {
-                mSuController.updateNotification();
-                mSuController.fireCallbacks();
             } else if (uri.equals(Settings.System.getUriFor(
                     Settings.System.HEADS_UP_SNOOZE_TIME))) {
                 final int snoozeTime = Settings.System.getIntForUser(
@@ -1233,8 +1226,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
         filter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         filter.addAction(Intent.ACTION_SCREEN_OFF);
         filter.addAction(Intent.ACTION_SCREEN_ON);
-        // receive broadcast from SnapdragonCamera
-        filter.addAction(FlashlightController.ACTION_CLOSE_FLASHLIGHT);
         if (DEBUG_MEDIA_FAKE_ARTWORK) {
             filter.addAction("fake_artwork");
         }
@@ -3625,12 +3616,6 @@ public class PhoneStatusBar extends BaseStatusBar implements DemoMode,
             } else if ("fake_artwork".equals(action)) {
                 if (DEBUG_MEDIA_FAKE_ARTWORK) {
                     updateMediaMetaData(true);
-                }
-            } else if (FlashlightController.ACTION_CLOSE_FLASHLIGHT.equals(action)) {
-                Bundle bundle = intent.getExtras();
-                if (bundle != null) {
-                    if (bundle.getBoolean("camera_led", false))
-                        mFlashlightController.killFlashlight();
                 }
             }
         }

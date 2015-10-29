@@ -31,10 +31,7 @@ import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.PowerManager;
-<<<<<<< HEAD
 import android.os.RemoteException;
-=======
->>>>>>> 7851e8c... power: Add CPU boosting interface
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -80,10 +77,7 @@ public class KeyButtonView extends ImageView {
     boolean mIsLongpressed = false;
     private AudioManager mAudioManager;
     private Animator mAnimateToQuiescent = new ObjectAnimator();
-    private KeyButtonRipple mRipple;
     private LongClickCallback mCallback;
-
-    private PowerManager mPm;
 
     private PowerManager mPm;
 
@@ -201,10 +195,6 @@ public class KeyButtonView extends ImageView {
 
     private ObjectAnimator animateToQuiescent() {
         return ObjectAnimator.ofFloat(this, "drawingAlpha", mQuiescentAlpha);
-    }
-
-    public void setRippleColor(int color) {
-        mRipple.setColor(color);
     }
 
     public float getQuiescentAlpha() {
